@@ -151,8 +151,9 @@ export class ChatEngine {
           <button class="pill-toggle" data-flag="deepThink" title="Показувати ланцюжок думок моделі">${ico("brain")}<span>Глибоке мислення</span></button>
         </div>
         <div class="top-actions">
-          <button class="icon-btn" data-act="call-audio" title="Голосовий дзвінок">${ico("phone")}</button>
-          <button class="icon-btn" data-act="call-video" title="Відеодзвінок">${ico("video")}</button>
+          <button class="icon-btn call-direct" data-act="call-audio" title="Голосовий дзвінок">${ico("phone")}</button>
+          <button class="icon-btn call-direct" data-act="call-video" title="Відеодзвінок">${ico("video")}</button>
+          <button class="icon-btn call-more" data-act="call-menu" title="Дзвінок">${ico("phone")}</button>
         </div>
       </div>
       <div class="msg-scroll"><div class="msg-list"></div>
@@ -198,6 +199,19 @@ export class ChatEngine {
     );
     this.topbar.querySelector('[data-act="call-audio"]')!.addEventListener("click", () => this.ctx.startCall("audio"));
     this.topbar.querySelector('[data-act="call-video"]')!.addEventListener("click", () => this.ctx.startCall("video"));
+    this.topbar.querySelector('[data-act="call-menu"]')!.addEventListener("click", (e) => {
+      const menu = el("div", "dd-callmenu");
+      menu.innerHTML = `
+        <button class="dd-item" data-kind="audio">${ico("phone")}<span class="dd-name">Голосовий дзвінок</span></button>
+        <button class="dd-item" data-kind="video">${ico("video")}<span class="dd-name">Відеодзвінок</span></button>`;
+      const close = openPopover(e.currentTarget as HTMLElement, menu, { align: "right", width: 224 });
+      menu.addEventListener("click", (ev) => {
+        const item = (ev.target as HTMLElement).closest(".dd-item") as HTMLElement | null;
+        if (!item) return;
+        close();
+        this.ctx.startCall(item.getAttribute("data-kind") as "audio" | "video");
+      });
+    });
 
     // композер
     this.ta.addEventListener("input", () => this.autosize());

@@ -73,6 +73,8 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   overflow: hidden;
 }
 ::selection { background: var(--accent); color: #fff; }
@@ -97,11 +99,11 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .app-shell {
   height: 100%;
   display: grid;
-  grid-template-columns: 274px 1fr 0;
+  grid-template-columns: clamp(236px, 20vw, 272px) 1fr 0;
   transition: grid-template-columns 0.32s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }
-.app-shell.art-open { grid-template-columns: 274px 1fr 390px; }
+.app-shell.art-open { grid-template-columns: clamp(236px, 20vw, 272px) 1fr clamp(330px, 27vw, 396px); }
 
 /* ---------- сайдбар ---------- */
 .sidebar {
@@ -184,13 +186,15 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 
 /* ---------- топбар чату ---------- */
 .chat-top {
-  display: flex; align-items: center; gap: 7px;
-  padding: 6px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: clamp(5px, 0.8vw, 9px);
+  padding: clamp(5px, 0.8vh, 9px) clamp(8px, 1.6vw, 18px);
+  border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--panel) 86%, transparent);
   backdrop-filter: blur(10px);
   flex: none; z-index: 5;
 }
 .sidebar-burger { display: none; }
+.call-more { display: none; }
 .head-row { display: flex; align-items: center; gap: 8px; }
 .head-row h2 { flex: 1; }
 .head-row-title { display: none; font-family: "Unbounded", sans-serif; font-weight: 600; font-size: 15.5px; }
@@ -202,7 +206,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 .model-btn {
   display: flex; align-items: center; gap: 8px; padding: 5.5px 10px;
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
-  font-weight: 700; font-size: 13px; max-width: 250px;
+  font-weight: 700; font-size: clamp(12.5px, 1.3vw, 13.5px); max-width: clamp(170px, 26vw, 290px);
   transition: border-color 0.14s, box-shadow 0.14s;
 }
 .model-btn:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -224,7 +228,7 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 
 /* ---------- стрічка повідомлень ---------- */
 .msg-scroll { flex: 1; overflow-y: auto; position: relative; min-height: 0; }
-.msg-list { max-width: 780px; margin: 0 auto; padding: 16px 14px 10px; display: flex; flex-direction: column; gap: 13px; min-height: 100%; font-size: var(--fs, 15px); }
+.msg-list { max-width: 780px; margin: 0 auto; padding: clamp(12px, 2vw, 20px) clamp(10px, 2vw, 22px) 10px; display: flex; flex-direction: column; gap: clamp(11px, 1.6vw, 14px); min-height: 100%; font-size: var(--fs, 15px); }
 .msg-scroll { overscroll-behavior: contain; }
 
 .msg { display: flex; gap: 9px; animation: fadeUp 0.3s cubic-bezier(0.3, 0.9, 0.4, 1) both; }
@@ -714,13 +718,45 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 @keyframes micPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); } 100% { box-shadow: 0 0 0 11px transparent; } }
 
 /* ============================================================
+   Тач-ергономіка: цілі ≥ 36-44px для пальців
+   ============================================================ */
+@media (pointer: coarse) {
+  .icon-btn { width: 36px; height: 36px; }
+  .ma-btn { width: 34px; height: 34px; }
+  .ma-btn svg { width: 15px; height: 15px; }
+  .pill-toggle { min-height: 34px; padding: 6px 11px; }
+  .nav-item { padding: 9px 10px; }
+  .dd-item { padding: 10px 10px; }
+  .dd-item > svg { width: 16px; height: 16px; color: var(--text-2); }
+  .art-tab { padding: 7px 10px; }
+  .set-tab { padding: 8px 12px; }
+  .ci-main { padding: 10px 36px 10px 11px; }
+  .ci-title { font-size: 13.5px; }
+  .send-btn { width: 38px; height: 38px; }
+  .comp-chip { width: 56px; height: 56px; }
+  .btn { min-height: 38px; }
+  .sw { width: 44px; height: 25px; }
+  .sw-thumb { width: 19px; height: 19px; }
+  .sw.on .sw-thumb { left: 22px; }
+  .call-btn { width: 52px; height: 52px; }
+  .theme-btn { padding: 8px 11px; }
+  .side-search input { padding: 10px 12px 10px 34px; }
+  .key-input input { padding: 10px 11px; }
+}
+@media (hover: none) {
+  .sugg-card:hover, .src-chip:hover, .call-btn:hover { transform: none; }
+  .thumb:hover img { transform: none; }
+  .chat-item:hover { background: transparent; }
+  .chat-item.active:hover { background: var(--accent-soft); }
+}
+
+/* ============================================================
    Адаптив
    ============================================================ */
 .sidebar-scrim { display: none; }
 
 @media (max-width: 1180px) {
-  .app-shell { grid-template-columns: 252px 1fr; }
-  .app-shell.art-open { grid-template-columns: 252px 1fr; }
+  .app-shell, .app-shell.art-open { grid-template-columns: clamp(236px, 23vw, 252px) 1fr; }
   .art-panel { position: fixed; right: 0; top: 0; bottom: 0; width: min(380px, 92vw); z-index: 60; transform: translateX(105%); transition: transform 0.3s cubic-bezier(0.3, 0.9, 0.4, 1); box-shadow: var(--shadow-lg); }
   .app-shell.art-open .art-panel { transform: none; border-left: 1px solid var(--border); }
 }
@@ -774,10 +810,10 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 
 @media (max-width: 560px) {
   .sidebar { width: min(290px, 88vw); }
-  .top-actions .icon-btn { width: 30px; height: 30px; }
-  .top-actions svg { width: 16px; height: 16px; }
-  .model-btn { max-width: 128px; }
-  .icon-btn { width: 30px; height: 30px; }
+  .top-actions .icon-btn { width: 36px; height: 36px; }
+  .top-actions svg { width: 17px; height: 17px; }
+  .model-btn { max-width: 150px; }
+  .icon-btn { width: 34px; height: 34px; }
   .msg-avatar { width: 24px; height: 24px; }
   .msg-avatar svg { width: 13px; height: 13px; }
   .bubble { padding: 6px 10px; }
@@ -800,4 +836,100 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   .brand-mark { width: 30px; height: 30px; }
   .brand-text { font-size: 13.5px; }
   .btn { padding: 7px 11px; font-size: 12.5px; }
+}
+
+/* ---------- модалка → нижня шторка (bottom sheet) ---------- */
+@media (max-width: 640px) {
+  .modal-ov { padding: 0; place-items: end center; backdrop-filter: blur(2px); }
+  .modal-card {
+    width: 100%; border-radius: 20px 20px 0 0; border-left: 0; border-right: 0; border-bottom: 0;
+    transform: translateY(28px); max-height: 88dvh; display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-ov.show .modal-card { transform: none; }
+  .modal-card::before {
+    content: ""; flex: none; width: 38px; height: 4px; border-radius: 99px;
+    background: var(--border-2); margin: 9px auto 2px;
+  }
+  .modal-head { padding-top: 8px; }
+  .modal-body { overflow-y: auto; overscroll-behavior: contain; }
+  .modal-actions { padding-bottom: 12px; }
+  .text-input { font-size: 16px; }
+}
+
+/* ---------- ≤460px: дзвінки в одному меню, щільніший топбар ---------- */
+@media (max-width: 460px) {
+  .call-direct { display: none; }
+  .call-more { display: grid; }
+  .model-btn { max-width: 138px; font-size: 12.5px; padding: 5px 8px; gap: 6px; }
+  .top-actions { gap: 2px; margin-left: auto; }
+  .comp-btns { gap: 2px; }
+  .composer { padding: 3px 6px calc(6px + env(safe-area-inset-bottom)); }
+  .msg-list { padding: 10px 8px 8px; gap: 10px; }
+  .bubble { padding: 6px 10px; border-radius: 12px 12px 4px 12px; }
+  .sugg-card { padding: 8px 10px; font-size: 12px; gap: 8px; }
+  .greet-mark { width: 48px; height: 48px; border-radius: 15px; }
+  .greet-mark svg { width: 23px; height: 23px; }
+  .greet-title { font-size: 19px; }
+  .greet-sub { font-size: 12.5px; margin-bottom: 14px; }
+  .pill-toggle { padding: 7px 8px; }
+  .pill-toggle svg { width: 15px; height: 15px; }
+  .msg-images { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+  .thumb img { height: 80px; }
+}
+
+/* ---------- ≤380px: найменші телефони ---------- */
+@media (max-width: 380px) {
+  .sidebar { width: min(280px, 90vw); }
+  .model-btn { max-width: 116px; }
+  .brand-mark { width: 29px; height: 29px; }
+  .brand-mark svg { width: 16px; height: 16px; }
+  .brand-text { font-size: 13px; }
+  .brand-text b { font-size: 9px; }
+  .btn-new { font-size: 12.5px; }
+  .ci-title { font-size: 12.5px; }
+  .nav-item { font-size: 12.5px; padding: 8px 9px; }
+  .theme-btn { font-size: 12px; padding: 6px 9px; }
+  .user-chip { font-size: 11.5px; }
+  .chip-note { display: none; }
+  .msg-avatar { width: 22px; height: 22px; }
+  .msg { gap: 7px; }
+  .msg-body { gap: 3px; }
+  .codeblock { border-radius: 10px; }
+  .cb-head { padding: 4px 6px 4px 9px; gap: 6px; }
+  .cb-num { padding: 8px 7px 8px 9px; font-size: 10.5px; }
+  .cb-body pre { padding: 8px 10px; }
+  .cb-body code { font-size: 11.5px; }
+  .src-chip { max-width: 148px; }
+  .think-head { padding: 7px 10px; font-size: 12px; }
+  .art-tab { font-size: 11.5px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .call-caption { font-size: 12px; padding: 7px 11px; }
+  .call-name { font-size: 15px; }
+  .avatar-wrap { width: 54vw; height: 54vw; }
+  .md-content { padding: 14px 12px; }
+  .md-content > h1:first-child { font-size: 19px; }
+  .md-content h2 { font-size: 15px; }
+  .doc-view { padding: 10px 8px 40px; }
+  .set-view { padding: 12px 10px 44px; }
+}
+
+/* ---------- ландшафт на телефонах (низький екран) ---------- */
+@media (max-height: 520px) and (orientation: landscape) {
+  .modal-card { max-height: 94dvh; }
+  .call-card { gap: 10px; padding: 10px; }
+  .avatar-wrap { width: min(170px, 36vh); height: min(170px, 36vh); }
+  .call-caption { max-width: 52vw; font-size: 12px; padding: 6px 11px; }
+  .call-controls { gap: 10px; }
+  .call-btn { width: 44px; height: 44px; }
+  .call-end { width: 52px; }
+  .call-hint { display: none; }
+  .empty-state { padding: 8px 6px; }
+  .greet-mark { width: 42px; height: 42px; margin-bottom: 8px; }
+  .greet-mark svg { width: 20px; height: 20px; }
+  .greet-title { font-size: 17px; }
+  .greet-sub { margin-bottom: 10px; font-size: 12px; }
+  .sugg-grid { gap: 6px; }
+  .dd-body { max-height: 66dvh; }
+  .set-view, .doc-view { padding-top: 10px; }
 }
