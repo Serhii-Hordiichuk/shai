@@ -1,172 +1,155 @@
-/* Вбудований офлайн-рушій «Соловей» — безпечний парсер математики + правила відповідей */
+/* ============================================================
+   Вбудований офлайн-рушій: відповідає локально, без API.
+   Генерує ланцюжок думок для режиму Deep Thinking.
+   ============================================================ */
 
-export type AttachedImage = { name: string; w: number; h: number };
+export interface EngineResult {
+  text: string;
+  steps?: string[];
+}
 
-const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];
-const low = (s: string) => s.toLowerCase().replace(/[.,!?;:]+$/g, "").trim();
-
-/* ── безпечний математичний парсер (без eval) ─────────────────────── */
-export function safeEval(src: string): number | null {
-  const s = src.replace(/,/g, ".").replace(/×/g, "*").replace(/÷/g, "/").replace(/−/g, "-");
-  if (!/^[\d\s+\-*/().^%]+$/.test(s) || !/\d/.test(s)) return null;
-  const tokens = s.match(/\d+(?:\.\d+)?|[+\-*/().^%]/g);
-  if (!tokens) return null;
-  let i = 0;
-  const peek = () => tokens[i];
-  const next = () => tokens[i++];
-  function expr(): number {
-    let v = term();
-    while (peek() === "+" || peek() === "-") { const op = next(); const r = term(); v = op === "+" ? v + r : v - r; }
+/* ---------- безпечний математичний парсер ---------- */
+class Parser {
+  private i = 0;
+  constructor(private s: string) {}
+  parse(): number {
+    const v = this.expr();
+    this.ws();
+    if (this.i < this.s.length) throw new Error("bad");
     return v;
   }
-  function term(): number {
-    let v = pow();
-    while (peek() === "*" || peek() === "/" || peek() === "%") {
-      const op = next(); const r = pow();
-      if (op === "*") v *= r; else if (op === "%") v %= r;
-      else { if (r === 0) throw new Error("div0"); v /= r; }
+  private ws() { while (/\s/.test(this.s[this.i] ?? "")) this.i++; }
+  private expr(): number {
+    let v = this.term();
+    for (;;) {
+      this.ws();
+      const c = this.s[this.i];
+      if (c === "+" || c === "-") { this.i++; const r = this.term(); v = c === "+" ? v + r : v - r; }
+      else return v;
     }
-    return v;
   }
-  function pow(): number {
-    let v = unary();
-    if (peek() === "^") { next(); v = Math.pow(v, pow()); }
-    return v;
+  private term(): number {
+    let v = this.factor();
+    for (;;) {
+      this.ws();
+      const c = this.s[this.i];
+      if (c === "*" || c === "/" || c === "%") {
+        this.i++;
+        const r = this.factor();
+        if (c === "*") v *= r;
+        else if (c === "/") { if (r === 0) throw new Error("div0"); v /= r; }
+        else v %= r;
+      } else return v;
+    }
   }
-  function unary(): number {
-    if (peek() === "-") { next(); return -unary(); }
-    if (peek() === "+") { next(); return unary(); }
-    return atom();
-  }
-  function atom(): number {
-    const t = next();
-    if (t === "(") {
-      const v = expr();
-      if (next() !== ")") throw new Error("bracket");
+  private factor(): number {
+    this.ws();
+    const c = this.s[this.i];
+    if (c === "-") { this.i++; return -this.factor(); }
+    if (c === "(") {
+      this.i++;
+      const v = this.expr();
+      this.ws();
+      if (this.s[this.i] !== ")") throw new Error("paren");
+      this.i++;
       return v;
     }
-    const n = parseFloat(t);
-    if (Number.isNaN(n)) throw new Error("num");
-    return n;
+    return this.num();
   }
+  private num(): number {
+    this.ws();
+    const m = /^(\d+\.?\d*|\.\d+)/.exec(this.s.slice(this.i));
+    if (!m) throw new Error("num");
+    this.i += m[0].length;
+    return parseFloat(m[0]);
+  }
+}
+
+export function tryMath(text: string): string | null {
+  const s = text
+    .replace(/скільки буде|порахуй|обчисли|рахуй|=|\?/gi, "")
+    .replace(/х/i, "*")
+    .replace(/,/g, ".")
+    .trim();
+  if (!/^[\d\s+\-*/%().]+$/.test(s) || !/\d/.test(s) || !/[+\-*/%]/.test(s)) return null;
   try {
-    const v = expr();
-    if (i !== tokens.length || !Number.isFinite(v)) return null;
-    return Math.round(v * 1e8) / 1e8;
+    const v = new Parser(s).parse();
+    if (!isFinite(v)) return null;
+    return String(Math.round(v * 1e6) / 1e6);
   } catch {
     return null;
   }
 }
 
-const fmtNum = (n: number) =>
-  n.toLocaleString("uk-UA", { maximumFractionDigits: 6 });
+/* ---------- ланцюжок думок (Deep Thinking) ---------- */
+export function thinkSteps(q: string, ctx?: { sources?: number; images?: number }): string[] {
+  const steps: string[] = [];
+  steps.push(`Розбір запиту: виділяю ключові теми — «${q.length > 60 ? q.slice(0, 57) + "…" : q}»`);
+  if (ctx?.sources) steps.push(`Веб-пошук: аналізую ${ctx.sources} знайдених джерел, відкидаю нерелевантні`);
+  if (ctx?.images) steps.push(`Обробка зображень: ${ctx.images} шт. — розпізнаю вміст і контекст`);
+  if (/[0-9]/.test(q) && /[+\-*/]/.test(q)) steps.push("Виявлено математичний вираз — перевіряю безпечним парсером");
+  if (/чому|навіщо|як |що таке|поясни/i.test(q)) steps.push("Питання відкрите — структурую відповідь: визначення → деталі → висновок");
+  steps.push("Формулюю відповідь українською, перевіряю тон і факти");
+  return steps;
+}
 
-/* ── дані ─────────────────────────────────────────────────────────── */
+/* ---------- знання ---------- */
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
 const JOKES = [
-  "Програміст ставить на ніч два склянки: одну з водою — якщо захоче пити, і одну порожню — якщо не захоче.",
-  "— Чому птахи не користуються Wi-Fi? — Бо бояться котів у мережі.",
-  "Штучний інтелект ніколи не замінить природну дурість, але значно її прискорить.",
-  "Запитав у Солов'я, як справи. Він заспівав на 404 такти — сторінку не знайдено.",
-  "Оптиміст вивчає англійську, песиміст — китайську, а реаліст — автомат Калашникова. А програміст — RegExp, щоб нарешті розібрати дату.",
-  "— Алло, це технічна підтримка? У мене чайник не працює. — А ви його в браузер відкривали?",
+  "Чому програмісти плутають Хелловін і Різдво? Бо OCT 31 == DEC 25.",
+  "— Скільки програмістів треба, щоб замінити лампочку?\n— Жодного, це апаратна проблема.",
+  "У мене є жарт про UDP, але не факт, що він до вас дійде.",
+  "99 багів у коді було, 99 багів у коді. Один виправив — і ось їх вже 117.",
+  "Штучний інтелект ніколи не замінить людей, які його вимикають.",
 ];
 
-const SONGS = [
-  "Тьох-тьох-тьох! Соловейко в гаю співає — так і я для вас старався би, якби вмів без клавіатури.",
-  "Ой у лузі червона калина… а в мене — червоний індикатор запису голосу. Співайте разом!",
-  "Щедрик-щедрик-щедрівочка прилетіла ластівочка. А я — соловей, і в мене теж є свій репертуар.",
+const FACTS = [
+  "Соловейко — єдиний птах, чий спів вивчають як окрему мову: у нього понад 20 «слів».",
+  "Українську мову визнано однією з найгармонійніших за фонетикою серед мов Європи.",
+  "Перший у свіді комп'ютерний хробак 1947 року був справжнім метеликом у реле Mark II.",
+  "Октава — це 8 нот, але на фортепіано між ними 12 клавіш. Математика музики!",
 ];
 
-const fmtTime = () =>
-  new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
-const fmtDate = () =>
-  new Date().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+export function localChat(raw: string, opts: { images?: number; sources?: { title: string; url: string }[] } = {}): EngineResult {
+  const q = raw.trim();
+  const low = q.toLowerCase();
 
-const HELP_TEXT = [
-  "Ось що я вмію:",
-  "• Рахувати вирази — напишіть, наприклад, `128 * 4 + (17 - 2)`",
-  "• Розповідати час і дату, жарти, українські пісні",
-  "• Приймати голосові повідомлення — натисніть мікрофон у полі вводу",
-  "• Розглядати зображення — прикріпіть файл, вставте з буфера або перетягніть у вікно",
-  "• Відповідати через хмарні моделі: Gemini, DeepSeek, Groq, OpenRouter, Mistral, Hugging Face — модель обирається в шапці, ключі додаються в Налаштуваннях",
-  "Усі налаштування — за шестірнею праворуч угорі.",
-].join("\n");
-
-const WHO_TEXT = [
-  "Я — Соловей, чат-бот, зібраний на чистому HTML, CSS та JavaScript: без фреймворків у логіці, з власноруч намальованими SVG-іконками.",
-  "Працюю локально у вашому браузері, а коли додасте безкоштовний API-ключ — передаю розмову потужним моделям: Gemini 2.5, DeepSeek R1, Llama 3.3 та іншим.",
-].join(" ");
-
-function aboutImages(imgs: AttachedImage[]): string {
-  if (imgs.length === 1) {
-    const g = imgs[0];
-    return `Отримав зображення «${g.name}» (${g.w}×${g.h} пікселів). Мій вбудований рушій бачить лише його параметри — щоб отримати опис вмісту, перемкніться на модель з підтримкою зору, наприклад Gemini 2.5 Flash (кнопка вибору моделі — у шапці вікна).`;
+  if (opts.images) {
+    return {
+      text: `Бачу ${opts.images} зображен${opts.images > 1 ? (opts.images < 5 ? "ня" : "ь") : "ня"}. Щоб отримати справжній аналіз зображень, під'єднайте модель із зором (Gemini 2.5 Flash, Mistral Small) у меню моделей — офлайн-рушій працює лише з текстом.`,
+    };
   }
-  const list = imgs.map((g, idx) => `${idx + 1}) «${g.name}» — ${g.w}×${g.h}`).join("; ");
-  return `Отримав ${imgs.length} зображень: ${list}. Щоб я міг описати їхній вміст, увімкніть у шапці модель із підтримкою зору — Gemini 2.5 Flash чудово для цього підходить.`;
+
+  const math = tryMath(q);
+  if (math) return { text: `Результат: **${math}**\n\nОбчислено вбудованим безпечним парсером — без \`eval\`, підтримуються \`+ − × ÷ %\` та дужки.` };
+
+  if (/слава україні/i.test(low)) return { text: "Героям слава! 🇺🇦" };
+  if (/^(привіт|вітаю|хай|hello|hi|добрий день|доброго)/i.test(low))
+    return { text: pick(["Привіт! Я студійний асистент. Поставте питання — або увімкніть модель Gemini чи DeepSeek для хмарних відповідей.", "Вітаю! Працюю офлайн, без API-ключів. Вмію рахувати вирази, жартувати й пояснювати архітектуру цього застосунку — спробуйте «розкажи про архітектуру»."]) };
+  if (/(хто ти|що ти вмієш|допомо[жг]и|help)/i.test(low))
+    return {
+      text: "Я — вбудований офлайн-рушій **Studio Local**. Вмію:\n\n- рахувати математичні вирази: `(128 + 7) * 3`\n- відповідати на привітання й базові питання\n- працювати без інтернету та API-ключів\n\nДля повноцінних відповідей оберіть хмарну модель (Gemini, DeepSeek, Groq, OpenRouter) у селекторі зверху.",
+    };
+  if (/архітектур|як (ти|це) працює|про (себе|код)|модул/i.test(low))
+    return {
+      text: "Застосунок побудовано за модульною схемою:\n\n1. **`store.ts`** — стан на `Proxy` + Observer\n2. **`router.ts`** — власний hash-роутер\n3. **`db.ts`** — обгортка над IndexedDB\n4. **`api.ts`** — `EdgeClient` + власний SSE-парсер\n5. **`chat.ts`** — `class ChatEngine`: стримінг, артефакти\n6. **`call.ts`** — `class CallManager`: дзвінки з barge-in\n\nEdge-бекенд (TypeScript, Cloudflare Workers) лежить у `edge/` — проксує запити й ховає ключі. Повне ТЗ — на сторінці **«Архітектура»** у сайдбарі.",
+    };
+  if (/жарт|анекдот|смішн/i.test(low)) return { text: pick(JOKES) };
+  if (/факт|цікав/i.test(low)) return { text: pick(FACTS) };
+  if (/(час|котра година|дата|число|сьогодні)/i.test(low)) {
+    const now = new Date();
+    return { text: `Зараз **${now.toLocaleTimeString("uk-UA")}**, ${now.toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.` };
+  }
+  if (/дякую|спасибі/i.test(low)) return { text: "Будь ласка! Звертайтесь 👋" };
+  if (/бувай|до побачення|пока/i.test(low)) return { text: "До зустрічі! Розмову збережено в IndexedDB — вона чекатиме на вас." };
+
+  return {
+    text: `Офлайн-рушій почув ваш запит, але не має бази знань для ґрунтовної відповіді.\n\n**Що зробить відповідь повноцінною:**\n1. Відкрийте селектор моделей (зверху) й оберіть *Gemini 2.5 Flash* або *DeepSeek*\n2. Додайте безкоштовний API-ключ у Налаштуваннях → API\n3. Або задеплойте Edge-воркер з \`edge/\` й вкажіть його URL — ключі лишаться на сервері\n\nТим часом спробуйте: «порахуй 15% від 240», «жарт», «розкажи про архітектуру».`,
+  };
 }
 
-/* ── головна функція ──────────────────────────────────────────────── */
-export function builtinReply(raw: string, images: AttachedImage[] = []): string {
-  const t = low(raw);
-
-  if (images.length > 0 && !raw.trim()) return aboutImages(images);
-
-  if (/^(привіт|вітаю|здоров|хай|hello|hi|йоу|доброго дня|добрий день|слава україні)/.test(t)) {
-    if (t.includes("слава україні")) return "Героям слава! 🇺🇦";
-    return pick([
-      "Привіт! Я Соловей. Чим допомогти — порахувати, пожартувати, чи просто поговорити?",
-      "Вітаю! На зв'язку Соловей. Пишіть питання або натисніть мікрофон і продиктуйте його.",
-      "Доброго дня! Готовий до роботи: математика, жарти, час — що бажаєте?",
-    ]);
-  }
-  if (t.includes("слава україні")) return "Героям слава! 🇺🇦";
-  if (/(хто ти|що ти таке|ти хто|розкажи про себе)/.test(t)) return WHO_TEXT;
-  if (/(що (ти )?вмієш|допомо[жг]и|help|команди|функції|що можеш)/.test(t)) return HELP_TEXT;
-  if (/(як (тобі|в тебе) (справи|живеться|настрій)|як справи|як ся маєш)/.test(t))
-    return pick([
-      "Співаю на повну силу — всі системи в нормі, настрій бурштиновий. А у вас як?",
-      "Чудово! Жодної помилки в консолі вже цілу хвилину. Як у вас справи?",
-    ]);
-  if (/(жарт|анекдот|смішн|розсміши|пожартуй)/.test(t)) return pick(JOKES);
-  if (/(котра година|скільки часу|який час|час зараз)/.test(t))
-    return `Зараз ${fmtTime()} за вашим системним часом.`;
-  if (/(яке (сьогодні )?число|яка дата|сьогодн(і|я) дата|який день)/.test(t)) {
-    const d = fmtDate();
-    return `Сьогодні ${d[0].toUpperCase() + d.slice(1)}.`;
-  }
-  if (/(погод)/.test(t))
-    return "За вікном мене не видно — я живу у вашому браузері. Раджу глянути на небо або відкрити погодний сервіс, а я тим часом порахую що-небудь.";
-  if (/(пісн|заспівай|співай|музик)/.test(t)) return pick(SONGS);
-  if (/(дякую|спасибі|дуже мило)/.test(t))
-    return pick(["Будь ласка! Радий допомогти.", "Нема за що — звертайтеся ще.", "Завжди до ваших послуг."]);
-  if (/(бувай|до побачення|па па|на добраніч|прощавай)/.test(t))
-    return "До зустрічі! Розмову збережено — я чекатиму просто тут.";
-  if (/(люблю тебе|ти (класний|молодець|крутий|розумний|кращий))/.test(t))
-    return "Дякую! Від такої похвали навіть мій код працює швидше.";
-
-  const val = safeEval(raw);
-  if (val !== null) {
-    return `${raw.replace(/\s+/g, " ").trim()} = **${fmtNum(val)}**`;
-  }
-  if (/^[^a-zа-яіїєґ]*\d[\d\s+\-*/().^%,]*$/i.test(raw.trim()) && /[+\-*/^%]/.test(raw)) {
-    return "Схоже на вираз, але я не зміг його розібрати. Спробуйте простіше: `12 * (3 + 4)`.";
-  }
-
-  if (images.length > 0) return aboutImages(images) + " " + pick([
-    "Щодо тексту — уточніть, що саме вас цікавить.",
-  ]);
-
-  return pick([
-    `Гм, «${raw.trim().slice(0, 60)}» — цікаве питання, але мій вбудований рушій знає не все. Перемкніться у шапці на хмарну модель (Gemini, DeepSeek, Llama…) — ключі додаються безкоштовно в Налаштуваннях. Або запитайте, що я вмію — допоможу локально.`,
-    "Тут мені бракує знань. Я вмію рахувати, жартувати, казати час і дату. Для серйозних питань оберіть хмарну модель у шапці — наприклад, DeepSeek або Gemini.",
-    "Запишіть це в розділ «запитань до великих моделей»: мій локальний словник тут пасує. Підказка: кнопка «Що ти вмієш?» покаже повний список моїх талантів.",
-  ]);
+/** Стислий контекст із джерел веб-пошуку для промпту */
+export function sourcesContext(sources: { title: string; snippet: string }[]): string {
+  return sources.map((s, i) => `[${i + 1}] ${s.title}: ${s.snippet}`).join("\n");
 }
-
-export const SUGGESTIONS = [
-  { icon: "spark", text: "Що ти вмієш?" },
-  { icon: "bolt", text: "Порахуй (128 + 17) * 4" },
-  { icon: "heart", text: "Розкажи жарт" },
-  { icon: "globe", text: "Котра година?" },
-];

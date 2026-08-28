@@ -1,15 +1,24 @@
 import { useEffect, useRef } from "react";
-import { mountChat } from "./chat";
+import { createStudio } from "./app";
 
-/* Тонка обгортка: сам застосунок — чистий vanilla JS (src/chat.ts) */
+/* Тонка обгортка-бутстрап: увесь застосунок — чистий Vanilla JS (src/app.ts) */
 export default function App() {
-  const rootRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!rootRef.current) return;
-    const cleanup = mountChat(rootRef.current);
-    return cleanup;
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    if (ref.current) {
+      createStudio(ref.current).then((c) => {
+        if (cancelled) c();
+        else cleanup = c;
+      });
+    }
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
   }, []);
 
-  return <div ref={rootRef} style={{ height: "100%" }} />;
+  return <div ref={ref} className="app-root" />;
 }
