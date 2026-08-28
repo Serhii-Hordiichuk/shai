@@ -91,6 +91,7 @@ export interface ChatCtx {
   persist: () => void;
   refreshArtifacts: () => void;
   startCall: (kind: "audio" | "video") => void;
+  headerEl: HTMLElement;
 }
 
 const SUGGESTIONS = [
@@ -139,11 +140,11 @@ export class ChatEngine {
   }
 
   private build(): void {
-    this.host.innerHTML = `
-      <div class="chat-top">
-        <button class="brand-btn" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
-          <span class="brand-word">shai</span>
-        </button>
+    this.ctx.headerEl.innerHTML = `
+      <button class="brand-btn" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
+        <span class="brand-word">shai</span>
+      </button>
+      <div class="chat-controls">
         <button class="model-btn" data-i18n-title="Choose model" title="Choose model"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
         <div class="top-toggles">
           <button class="pill-toggle" data-flag="webSearch" data-i18n-title="Search the web for sources before answering" title="Search the web for sources before answering">${ico("globe")}<span data-i18n="Web search">Web search</span></button>
@@ -154,7 +155,10 @@ export class ChatEngine {
           <button class="icon-btn call-direct" data-act="call-video" data-i18n-title="Video call" title="Video call">${ico("video")}</button>
           <button class="icon-btn call-more" data-act="call-menu" data-i18n-title="Call" title="Call">${ico("phone")}</button>
         </div>
-      </div>
+      </div>`;
+    this.topbar = this.ctx.headerEl;
+
+    this.host.innerHTML = `
       <div class="msg-scroll"><div class="msg-list"></div>
         <button class="jump-btn" data-i18n-title="Scroll to bottom" title="Scroll to bottom">${ico("arrowDown")}<span class="jump-count" hidden>0</span></button>
       </div>
@@ -172,12 +176,11 @@ export class ChatEngine {
       </div>
       <div class="drop-veil" hidden><div class="drop-card">${ico("image")}<b data-i18n="Drop images to attach">Drop images to attach</b></div></div>
       <input type="file" accept="image/*" multiple hidden />`;
-    this.topbar = this.host.querySelector(".chat-top")!;
     this.listEl = this.host.querySelector(".msg-list")!;
     this.scroller = this.host.querySelector(".msg-scroll")!;
     this.ta = this.host.querySelector(".comp-ta")!;
     this.sendBtn = this.host.querySelector(".send-btn")!;
-    this.modelBtn = this.host.querySelector(".model-btn")!;
+    this.modelBtn = this.topbar.querySelector(".model-btn")!;
     this.chipsEl = this.host.querySelector(".comp-chips")!;
     this.fileInput = this.host.querySelector("input[type=file]")!;
   }

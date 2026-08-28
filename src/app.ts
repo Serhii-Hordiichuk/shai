@@ -117,37 +117,38 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   root.innerHTML = `
     <div class="app-shell">
       <div class="sidebar-scrim"></div>
-      <aside class="sidebar">
-        <div class="side-top">
-          <button class="brand side-brand" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
-            <span class="brand-word lg">shai</span>
-          </button>
-          <button class="btn btn-primary btn-new">${ico("plus")} <span data-i18n="New chat">New chat</span></button>
-          <div class="side-search">${ico("search")}<input data-i18n-ph="Search chats…" placeholder="Search chats…" /></div>
-        </div>
-        <nav class="chat-list" aria-label="Conversation history"></nav>
-        <div class="side-nav">
-          <a class="nav-item" href="#/about" data-nav="about">${ico("doc")}<span data-i18n="About & Legal">About &amp; Legal</span></a>
-        </div>
-        <div class="side-bottom">
-          <a class="nav-item side-settings" href="#/settings" data-nav="settings">${ico("gear")}<span data-i18n="Settings">Settings</span></a>
-        </div>
-      </aside>
-      <main class="main-col">
-        <div class="view view-chat" data-view="chat"></div>
-        <div class="view view-settings" data-view="settings" hidden></div>
-        <div class="view view-about" data-view="about" hidden></div>
-      </main>
-      <aside class="art-panel">
-        <div class="art-head">
-          <h3>${ico("layers")} <span data-i18n="Artifacts">Artifacts</span> <span class="art-count">0</span></h3>
-          <button class="icon-btn art-close" data-i18n-title="Close panel" title="Close panel">${ico("close")}</button>
-        </div>
-        <div class="art-body"></div>
-      </aside>
+      <header class="app-header"></header>
+      <div class="app-body">
+        <aside class="sidebar">
+          <div class="side-top">
+            <button class="btn btn-primary btn-new">${ico("plus")} <span data-i18n="New chat">New chat</span></button>
+            <div class="side-search">${ico("search")}<input data-i18n-ph="Search chats…" placeholder="Search chats…" /></div>
+          </div>
+          <nav class="chat-list" aria-label="Conversation history"></nav>
+          <div class="side-nav">
+            <a class="nav-item" href="#/about" data-nav="about">${ico("doc")}<span data-i18n="About & Legal">About &amp; Legal</span></a>
+          </div>
+          <div class="side-bottom">
+            <a class="nav-item side-settings" href="#/settings" data-nav="settings">${ico("gear")}<span data-i18n="Settings">Settings</span></a>
+          </div>
+        </aside>
+        <main class="main-col">
+          <div class="view view-chat" data-view="chat"></div>
+          <div class="view view-settings" data-view="settings" hidden></div>
+          <div class="view view-about" data-view="about" hidden></div>
+        </main>
+        <aside class="art-panel">
+          <div class="art-head">
+            <h3>${ico("layers")} <span data-i18n="Artifacts">Artifacts</span> <span class="art-count">0</span></h3>
+            <button class="icon-btn art-close" data-i18n-title="Close panel" title="Close panel">${ico("close")}</button>
+          </div>
+          <div class="art-body"></div>
+        </aside>
+      </div>
     </div>`;
 
   const shell = root.querySelector(".app-shell") as HTMLElement;
+  const headerEl = root.querySelector(".app-header") as HTMLElement;
   const chatListEl = root.querySelector(".chat-list") as HTMLElement;
   const searchInput = root.querySelector(".side-search input") as HTMLInputElement;
   const artBody = root.querySelector(".art-body") as HTMLElement;
@@ -197,6 +198,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       });
       void callMgr.start(kind);
     },
+    headerEl,
   });
 
   function groupLabel(ts: number): string {
@@ -314,6 +316,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   function showView(name: "chat" | "settings" | "about"): void {
     store.state.view = name;
     store.state.sidebarOpen = false;
+    headerEl.classList.toggle("chat-mode", name === "chat");
     for (const [k, v] of Object.entries(viewEls)) v.hidden = k !== name;
     root.querySelectorAll(".nav-item").forEach((n) => n.classList.toggle("active", n.getAttribute("data-nav") === name));
     if (name === "settings") renderSettings();
@@ -321,15 +324,14 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   }
 
   function renderAbout(): void {
-    viewEls.about.innerHTML = `<div class="doc-view"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-word">shai</span></button><span class="head-row-title">${t("About & Legal")}</span></div><div class="md-content">${renderMarkdown(ABOUT_MD)}</div></div>`;
-    viewEls.about.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
+    viewEls.about.innerHTML = `<div class="doc-view"><div class="md-content">${renderMarkdown(ABOUT_MD)}</div></div>`;
   }
 
   function renderSettings(): void {
     const host = viewEls.settings;
     host.innerHTML = `
       <div class="set-view">
-        <header class="set-head"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-word">shai</span></button><h2>${ico("gear")} ${t("Settings")}</h2></div><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
+        <header class="set-head"><h2>${ico("gear")} ${t("Settings")}</h2><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
         <div class="set-tabs">
           <button class="set-tab on" data-tab="api">${ico("key")} ${t("Models & API")}</button>
           <button class="set-tab" data-tab="voice">${ico("mic")} ${t("Voice & Calls")}</button>
@@ -341,7 +343,6 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         <div class="set-panel" data-panel="ui" hidden></div>
         <div class="set-panel" data-panel="data" hidden></div>
       </div>`;
-    host.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
     const panels = host.querySelectorAll(".set-panel");
     host.querySelectorAll(".set-tab").forEach((tb) =>
       tb.addEventListener("click", () => {
@@ -600,10 +601,6 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     store.state.chats = [c, ...store.state.chats];
     persist();
     router.navigate(`#/c/${c.id}`);
-  });
-  root.querySelector(".side-brand")!.addEventListener("click", () => {
-    if (innerWidth <= 920) store.state.sidebarOpen = !store.state.sidebarOpen;
-    else store.state.sideCollapsed = !store.state.sideCollapsed;
   });
   root.querySelector(".sidebar-scrim")!.addEventListener("click", () => { store.state.sidebarOpen = false; });
   root.querySelector(".art-close")!.addEventListener("click", () => { store.state.artOpen = false; });
