@@ -153,8 +153,48 @@ export class DidAccount {
     return this.verify(did, pubJwk, `${ch.nonce}:${ch.ts}`, sig);
   }
 
-  short(): string {
-    const d = this.profile?.did ?? "";
-    return d ? d.slice(0, 15) + "…" + d.slice(-4) : "—";
+  async exportEncrypted(passphrase: string): Promise<string> {
+    const saved = await this.db.get<{ priv: JsonWebKey; pub: JsonWebKey; profile: DidProfile }>("did", "account");
+    if (!saved) throw new Error("no identity");
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const base = await crypto.subtle.importKey("raw", te.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: salt as BufferSource, iterations: 150_000, hash: "SHA-256" },
+      base,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, te.encode(JSON.stringify(saved)));
+    return JSON.stringify({ v: 1, alg: "PBKDF2-AES256GCM", salt: b64uEncode(salt), iv: b64uEncode(iv), data: b64uEncode(new Uint8Array(ct)) });
+  }
+
+  async importEncrypted(blob: string, passphrase: string): Promise<DidProfile> {
+    const j = JSON.parse(blob) as { v: number; salt: string; iv: string; data: string };
+    if (j.v !== 1) throw new Error("Unsupported backup format");
+    const salt = b64uDecode(j.salt);
+    const iv = b64uDecode(j.iv);
+    const base = await crypto.subtle.importKey("raw", te.encode(passphrase), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: salt as BufferSource, iterations: 150_000, hash: "SHA-256" },
+      base,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"]
+    );
+    const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv as BufferSource }, key, b64uDecode(j.data) as BufferSource);
+    const saved = JSON.parse(new TextDecoder().decode(pt)) as { priv: JsonWebKey; pub: JsonWebKey; profile: DidProfile };
+    await this.db.set("did", "account", saved);
+    await this.load();
+    return this.profile!;
+  }
+
+  async erase(): Promise<void> {
+    await this.db.del("did", "account");
+    this.profile = null;
+    this.priv = null;
+    this.pub = null;
+    this.pubJwk = null;
   }
 }
