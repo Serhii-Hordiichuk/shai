@@ -133,6 +133,7 @@ export class ChatEngine {
   private controller: AbortController | null = null;
   private fileInput!: HTMLInputElement;
   private dictStop: (() => void) | null = null;
+  private hasNew = false;
 
   constructor(private host: HTMLElement, private ctx: ChatCtx) {
     this.build();
@@ -172,7 +173,7 @@ export class ChatEngine {
             <button class="send-btn" data-act="send" data-i18n-title="Send" title="Send">${ico("send")}</button>
           </div>
         </div>
-        <div class="comp-hint"><span class="hint-model"></span><span data-i18n="AI may be wrong — double-check important info">AI may be wrong — double-check important info</span></div>
+        <div class="comp-hint"><span class="hint-model"></span><span class="hint-keys"></span></div>
       </div>
       <div class="drop-veil" hidden><div class="drop-card">${ico("image")}<b data-i18n="Drop images to attach">Drop images to attach</b></div></div>
       <input type="file" accept="image/*" multiple hidden />`;
@@ -298,23 +299,48 @@ export class ChatEngine {
     });
 
     const jump = this.host.querySelector(".jump-btn") as HTMLElement;
-    const count = jump.querySelector(".jump-count") as HTMLElement;
     this.scroller.addEventListener("scroll", () => {
       const near = this.nearBottom();
       jump.classList.toggle("show", !near);
-      if (near) count.hidden = true;
+      if (near) this.clearNew();
     });
     jump.addEventListener("click", () => this.scrollBottom(true));
 
     store.watch(["modelId", "models"], () => this.syncModelBtn());
     store.watch(["webSearch", "deepThink"], () => this.syncToggles());
+    store.watch(["settings"], () => this.syncHint());
     this.syncToggles();
+    this.syncHint();
   }
 
   applyLang(): void {
     applyI18n(this.host);
     this.syncModelBtn();
+    this.syncHint();
     this.renderChat();
+  }
+
+  private syncHint(): void {
+    const keys = this.host.querySelector(".hint-keys") as HTMLElement | null;
+    if (!keys) return;
+    keys.textContent = this.ctx.store.state.settings.enterSend
+      ? t("Enter ↵ send · Shift+Enter newline")
+      : t("Ctrl+Enter send");
+  }
+
+  private markNew(): void {
+    if (this.nearBottom() || this.hasNew) return;
+    this.hasNew = true;
+    const count = this.host.querySelector(".jump-count") as HTMLElement;
+    count.hidden = false;
+    count.textContent = "1";
+  }
+
+  private clearNew(): void {
+    if (!this.hasNew) return;
+    this.hasNew = false;
+    const count = this.host.querySelector(".jump-count") as HTMLElement;
+    count.hidden = true;
   }
 
   private openModelMenu(): void {
