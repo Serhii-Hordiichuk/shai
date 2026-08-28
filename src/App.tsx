@@ -1,19 +1,15 @@
 import { useEffect, useRef } from "react";
-import { initChat } from "./chat";
+import { mountChat } from "./chat";
 
-/*
-  React тут — лише точка монтування.
-  Увесь чат-бот живе у src/chat.ts на чистому JS:
-  DOM, події, стан і анімації — без жодного фреймворка.
-*/
+/* Тонка обгортка: сам застосунок — чистий vanilla JS (src/chat.ts) */
 export default function App() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!rootRef.current) return;
-    const destroy = initChat(rootRef.current);
-    return destroy;
+    const cleanup = mountChat(rootRef.current);
+    return cleanup;
   }, []);
 
-  return <div ref={rootRef} className="app-root" style={{ height: "100%" }} />;
+  return <div ref={rootRef} style={{ height: "100%" }} />;
 }
