@@ -117,10 +117,10 @@ export function localChat(raw: string, opts: { images?: number; sources?: { titl
   if (math) return { text: `Result: **${math}**\n\nComputed by the built-in safe parser — no \`eval\`, supports \`+ − × ÷ %\` and parentheses.` };
 
   if (/^(hi|hello|hey|good (morning|afternoon|evening)|greetings)/i.test(low))
-    return { text: pick(["Hello! I'm the studio assistant. Ask me anything — or switch to Gemini / DeepSeek in the model menu for cloud answers.", "Hi there! I run fully offline, no API keys needed. I can do math, tell jokes and explain this app's architecture — try \"walk me through the architecture\"."]) };
+    return { text: pick(["Hello! I'm the shai assistant. Ask me anything — or switch to Gemini / DeepSeek in the model menu for cloud answers.", "Hi there! I run fully offline, no API keys needed. I can do math, tell jokes and explain this app's architecture — try \"walk me through the architecture\"."]) };
   if (/(who are you|what can you do|help me|help$)/i.test(low))
     return {
-      text: "I'm **Studio Local**, the built-in offline engine. I can:\n\n- compute math expressions: `(128 + 7) * 3`\n- answer greetings and basic questions\n- work without internet or API keys\n\nFor full answers, pick a cloud model (Gemini, DeepSeek, Groq, OpenRouter) in the selector above.",
+      text: "I'm **shai local**, the built-in offline engine. I can:\n\n- compute math expressions: `(128 + 7) * 3`\n- answer greetings and basic questions\n- work without internet or API keys\n\nFor full answers, pick a cloud model (Gemini, DeepSeek, Groq, OpenRouter) in the selector above.",
     };
   if (/architecture|how (do|does) (you|this|it) work|about (yourself|the code)|modules?/i.test(low))
     return {
