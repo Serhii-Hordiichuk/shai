@@ -15,107 +15,61 @@ import type { Artifact } from "./render";
 import { t, setLang, getLang, applyI18n } from "./i18n";
 import type { Lang } from "./i18n";
 
-const F = "```";
-const VERSION = "v3.4";
 
-const DOC_MD = `# Technical Spec: shai — the quiet ai
 
-Visual language — a Qwen-style studio: three columns, calm focus on content. Calls follow Telegram: full-screen call, waveform, timer, barge-in.
+const ABOUT_MD = `# About shai
 
-## 1. Hard constraints
+**shai** — *the quiet ai*. The name is a whisper: **sh** + **ai**. A studio for working with AI that stays out of the way — no accounts to register, no noise, no lock-in. You, the model, and the work.
 
-- **Frontend:** pure HTML5 + CSS3 + Vanilla JS (ES Modules). No React/Vue/Angular in app logic. Dropdowns, modals, sliders, toasts — custom classes.
-- **Backend:** TypeScript on Edge (Cloudflare Workers) only. No Node.js/Express.
-- **Client data:** IndexedDB through a custom wrapper (module \`db.ts\`).
+## What it is
 
-## 2. File layout
+- A three-column AI studio: conversation history, chat with token-level streaming, and an artifacts panel with live HTML previews.
+- **11 model providers** (Gemini, DeepSeek incl. R1, Groq, OpenRouter, Mistral, OpenAI, Anthropic, xAI, Cerebras, SambaNova, local Ollama) plus a built-in offline engine that works with zero keys.
+- Web search, deep thinking (chain of thought), images, voice dictation, and **Telegram-style voice & video calls** with barge-in and a live canvas avatar.
+- A decentralized layer in active development: DID identities, a serverless mesh of nodes, and AI-to-AI introductions.
 
-${F}
-src/
-├─ main.ts        # bootstrap (mount)
-├─ app.ts         # orchestration: store, router, sidebar, views
-├─ store.ts       # Proxy + Observer state manager
-├─ router.ts      # custom hash router (#/c/:id, #/settings, #/docs)
-├─ db.ts          # custom IndexedDB wrapper
-├─ api.ts         # EdgeClient + hand-rolled SSE parser + web search
-├─ engine.ts      # offline reply engine + chain of thought
-├─ chat.ts        # class ChatEngine: streaming, artifacts, composer
-├─ call.ts        # class CallManager: calls, barge-in, avatar
-├─ render.ts      # Markdown + highlight.js + code blocks
-├─ ui.ts          # modals, dropdowns, toasts, switches, sliders
-├─ i18n.ts        # EN/UK translations
-├─ icons.ts       # every icon is custom SVG
-└─ index.css      # light/dark themes via CSS variables
+## How it is built
 
-edge/             # Cloudflare Worker (TypeScript)
-├─ src/index.ts   # routes + model aggregation + KV cache
-├─ src/router.ts  # class EdgeRouter
-├─ src/providers.ts # vendor adapters (OpenAI/Anthropic/Google/…)
-├─ wrangler.toml  # KV bindings, compatibility_date
-└─ tsconfig.json
-${F}
+The interface is pure **HTML5, CSS3 and Vanilla JavaScript** (ES Modules) — no UI frameworks, every component hand-rolled: state manager on Proxy, hash router, IndexedDB wrapper, SSE parser, 50+ custom SVG icons. The optional backend is **TypeScript on Cloudflare Workers**: it proxies model APIs, aggregates model catalogs into Edge KV, and keeps provider keys server-side. Without a worker, the app runs in direct mode (your keys, your browser) or fully offline.
 
-## 3. Key classes
+---
 
-### \`class Store\` — Proxy state
-${F}ts
-const store = new Store<AppState>({ chats: [], settings, … });
-store.on(path => render(path));           // Observer
-store.state.modelId = "gemini-2.5-flash"; // → emit('modelId')
-store.setDeep('settings', s => ({ ...s, theme: 'dark' }));
-${F}
+# License
 
-### \`class EdgeRouter\` (Edge, TypeScript)
-${F}ts
-const r = new EdgeRouter();
-r.get('/api/health', () => json({ ok: true }));
-r.get('/api/models', handleModels);   // aggregation + KV
-r.post('/api/chat', handleChat);      // streaming proxy
-export default { fetch: (req, env, ctx) => r.handle(req, env, ctx) };
-${F}
+shai is free and open-source software, released under the **MIT License**:
 
-### \`class ChatEngine\` — streaming & artifacts
-${F}ts
-const gen = client.chat(model, messages, { keys, signal, deep, webContext });
-for await (const ev of gen) {
-  if (ev.type === 'thinking') showThought(ev.text); // Deep Thinking
-  if (ev.type === 'delta')    appendMarkdown(ev.text);
-}
-msg.arts = extractArtifacts(markdown); // → right panel
-${F}
+> **MIT License** — Copyright © 2026 shai Contributors
+>
+> Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+>
+> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+>
+> THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### \`class CallManager\` — Telegram-style calls
-${F}
-Mic → Web Speech (STT) → Edge API → TTS
-     ↘ Web Audio: AnalyserNode → waveform + barge-in
-Video: <video> (local) + Canvas AI avatar (TTS lip-sync)
-${F}
+---
 
-## 4. Edge functions
+# Policies
 
-| Endpoint | Method | Action |
-|---|---|---|
-| \`/api/health\` | GET | worker liveness check |
-| \`/api/models\` | GET | aggregates \`/v1/models\` of all providers (OpenAI, Anthropic, Google, Mistral, Groq, Ollama), caches in KV for 1 h, returns a single JSON |
-| \`/api/chat\` | POST | takes \`{provider, model, messages, stream, deep}\`, injects keys from ENV, routes to the vendor, normalizes SSE (\`delta\` / \`thinking\`) |
+## Privacy
 
-Keys live **only in the worker ENV** — the client never sees them. Without a worker the app automatically switches to "direct mode": keys from IndexedDB, vendor calls from the browser, or the offline engine.
+- **Everything stays on your device.** Conversations, settings, images and the model cache are stored in your browser's IndexedDB. There are no accounts, no cookies, no analytics, no telemetry — the app has no way to phone home.
+- **API keys are yours.** In direct mode they never leave your browser. In Edge mode they live only in the worker's secret environment — the worker itself is the only server that sees them, and it can be self-hosted.
+- **Identity (DID), when you create one,** is a key pair generated locally with WebCrypto. The private key never leaves the device; ownership of the key *is* the authentication.
 
-## 5. Persistence
+## Network & calls
 
-- **IndexedDB** (wrapper \`db.ts\`): conversations, settings, model cache, selected model.
-- **Edge KV**: aggregated model list (TTL 3600 s).
-- **Edge D1 / KV (optional)**: multi-tenant storage of user keys.
+- Node-to-node links use **WebRTC peer-to-peer** channels; signaling is done by exchanging invitation codes you transport yourself. Public STUN servers only help with NAT traversal and never touch your traffic.
+- Every network packet is **signed with a DID key**, so peers are verified cryptographically — not by trusting a server.
+- Voice calls run through the Web Speech API: synthesis is on-device; recognition, in Chromium browsers, is processed by the browser vendor's speech service.
 
-## 6. What works in this build
+## Web search
 
-- Three columns: history + settings / chat / artifacts with live HTML preview in a sandbox-iframe
-- Custom model dropdown with search and provider grouping (11 providers)
-- "Web search" (real Wikipedia API + sources under the reply) and "Deep thinking" toggles (chain of thought: local steps or \`reasoning_content\` DeepSeek R1 / Gemini thinking)
-- Hand-rolled SSE parser, token streaming, Stop button
-- Calls: voice and video, Web Audio waveform, captions, barge-in, transcript to chat
-- Voice input in the composer, images (file / paste / drag-and-drop), lightbox
-- EN/UK interface language, light/dark themes via CSS variables, custom scrollbars, full responsive (380px → 4K), collapsible sidebar
+- Lookups are sent to the public Wikipedia API to fetch sources. No identifiers, cookies or account data are attached.
+
+## AI output
+
+- Responses are generated by the model provider **you** select; your prompt is sent only to that provider (or to your own worker/Ollama).
+- Models can be wrong. Verify anything important before relying on it.
 `;
 
 export async function createStudio(root: HTMLElement): Promise<() => void> {
@@ -165,28 +119,25 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       <div class="sidebar-scrim"></div>
       <aside class="sidebar">
         <div class="side-top">
-          <a class="brand" href="#/">
+          <button class="brand side-brand" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
             <span class="brand-mark">${ico("logo")}</span>
             <span class="brand-text"><span class="brand-name">shai</span><b data-i18n="the quiet ai">the quiet ai</b></span>
-          </a>
-          <button class="icon-btn side-collapse" data-i18n-title="Collapse sidebar" title="Collapse sidebar">${ico("chevronRight")}</button>
+          </button>
           <button class="btn btn-primary btn-new">${ico("plus")} <span data-i18n="New chat">New chat</span></button>
           <div class="side-search">${ico("search")}<input data-i18n-ph="Search chats…" placeholder="Search chats…" /></div>
         </div>
         <nav class="chat-list" aria-label="Conversation history"></nav>
         <div class="side-nav">
-          <a class="nav-item" href="#/settings" data-nav="settings">${ico("gear")}<span data-i18n="Settings">Settings</span></a>
-          <a class="nav-item" href="#/docs" data-nav="docs">${ico("doc")}<span data-i18n="Architecture & Spec">Architecture &amp; Spec</span></a>
+          <a class="nav-item" href="#/about" data-nav="about">${ico("doc")}<span data-i18n="About & Legal">About &amp; Legal</span></a>
         </div>
         <div class="side-bottom">
-          <button class="theme-btn" data-i18n-title="Toggle theme" title="Toggle theme">${ico(settings.theme === "dark" ? "sun" : "moon")}<span data-i18n="Theme">Theme</span></button>
-          <div class="user-chip"><span class="user-dot"></span><span data-i18n="Guest">Guest</span><span class="chip-note">${ico("db")} <span data-i18n="local">local</span></span><span class="ver-chip">${VERSION}</span></div>
+          <a class="nav-item side-settings" href="#/settings" data-nav="settings">${ico("gear")}<span data-i18n="Settings">Settings</span></a>
         </div>
       </aside>
       <main class="main-col">
         <div class="view view-chat" data-view="chat"></div>
         <div class="view view-settings" data-view="settings" hidden></div>
-        <div class="view view-docs" data-view="docs" hidden></div>
+        <div class="view view-about" data-view="about" hidden></div>
       </main>
       <aside class="art-panel">
         <div class="art-head">
@@ -205,7 +156,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   const viewEls = {
     chat: root.querySelector('[data-view="chat"]') as HTMLElement,
     settings: root.querySelector('[data-view="settings"]') as HTMLElement,
-    docs: root.querySelector('[data-view="docs"]') as HTMLElement,
+    about: root.querySelector('[data-view="about"]') as HTMLElement,
   };
 
   function makeChat(): ChatDoc {
@@ -361,25 +312,25 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     });
   }
 
-  function showView(name: "chat" | "settings" | "docs"): void {
+  function showView(name: "chat" | "settings" | "about"): void {
     store.state.view = name;
     store.state.sidebarOpen = false;
     for (const [k, v] of Object.entries(viewEls)) v.hidden = k !== name;
     root.querySelectorAll(".nav-item").forEach((n) => n.classList.toggle("active", n.getAttribute("data-nav") === name));
     if (name === "settings") renderSettings();
-    if (name === "docs") renderDocs();
+    if (name === "about") renderAbout();
   }
 
-  function renderDocs(): void {
-    viewEls.docs.innerHTML = `<div class="doc-view"><div class="head-row"><button class="icon-btn view-burger" title="${t("Menu")}">${ico("menu")}</button><span class="head-row-title">${t("Architecture & Spec")}</span></div><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
-    viewEls.docs.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
+  function renderAbout(): void {
+    viewEls.about.innerHTML = `<div class="doc-view"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-mark sm">${ico("logo")}</span><span class="brand-word">shai</span></button><span class="head-row-title">${t("About & Legal")}</span></div><div class="md-content">${renderMarkdown(ABOUT_MD)}</div></div>`;
+    viewEls.about.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
   }
 
   function renderSettings(): void {
     const host = viewEls.settings;
     host.innerHTML = `
       <div class="set-view">
-        <header class="set-head"><div class="head-row"><button class="icon-btn view-burger" title="${t("Menu")}">${ico("menu")}</button><h2>${ico("gear")} ${t("Settings")}</h2></div><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
+        <header class="set-head"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-mark sm">${ico("logo")}</span><span class="brand-word">shai</span></button><h2>${ico("gear")} ${t("Settings")}</h2></div><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
         <div class="set-tabs">
           <button class="set-tab on" data-tab="api">${ico("key")} ${t("Models & API")}</button>
           <button class="set-tab" data-tab="voice">${ico("mic")} ${t("Voice & Calls")}</button>
@@ -651,11 +602,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     persist();
     router.navigate(`#/c/${c.id}`);
   });
-  root.querySelector(".theme-btn")!.addEventListener("click", () => {
-    set({ theme: s().theme === "dark" ? "light" : "dark" });
-  });
-  root.querySelector(".side-collapse")!.addEventListener("click", () => {
-    store.state.sideCollapsed = !store.state.sideCollapsed;
+  root.querySelector(".side-brand")!.addEventListener("click", () => {
+    if (innerWidth <= 920) store.state.sidebarOpen = !store.state.sidebarOpen;
+    else store.state.sideCollapsed = !store.state.sideCollapsed;
   });
   root.querySelector(".sidebar-scrim")!.addEventListener("click", () => { store.state.sidebarOpen = false; });
   root.querySelector(".art-close")!.addEventListener("click", () => { store.state.artOpen = false; });
@@ -678,15 +627,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       setLang(s().lang);
       updateI18nAll();
     }
-    const tb = root.querySelector(".theme-btn")!;
-    tb.innerHTML = `${ico(s().theme === "dark" ? "sun" : "moon")}<span data-i18n="Theme">${t("Theme")}</span>`;
   }));
   unsubs.push(store.watch(["sidebarOpen"], () => shell.classList.toggle("side-open", store.state.sidebarOpen)));
-  unsubs.push(store.watch(["sideCollapsed"], () => {
-    shell.classList.toggle("side-collapsed", store.state.sideCollapsed);
-    const btn = root.querySelector(".side-collapse")!;
-    btn.setAttribute("title", t(store.state.sideCollapsed ? "Expand sidebar" : "Collapse sidebar"));
-  }));
+  unsubs.push(store.watch(["sideCollapsed"], () => shell.classList.toggle("side-collapsed", store.state.sideCollapsed)));
   unsubs.push(store.watch(["artOpen"], () => shell.classList.toggle("art-open", store.state.artOpen)));
 
   function applyTheme(): void {
@@ -702,7 +645,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     engine.applyLang();
     renderChatList(searchInput.value);
     if (store.state.view === "settings") renderSettings();
-    if (store.state.view === "docs") renderDocs();
+    if (store.state.view === "about") renderAbout();
     renderArtifacts();
   }
 
@@ -719,7 +662,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       renderChatList(searchInput.value);
     })
     .add("#/settings", () => showView("settings"))
-    .add("#/docs", () => showView("docs"))
+    .add("#/about", () => showView("about"))
     .setFallback(() => router.navigate(`#/c/${store.state.activeId || store.state.chats[0]?.id}`));
 
   renderChatList();

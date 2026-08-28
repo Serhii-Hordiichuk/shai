@@ -141,7 +141,9 @@ export class ChatEngine {
   private build(): void {
     this.host.innerHTML = `
       <div class="chat-top">
-        <button class="icon-btn sidebar-burger" data-i18n-title="Menu" title="Menu">${ico("menu")}</button>
+        <button class="brand-btn" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
+          <span class="brand-mark sm">${ico("logo")}</span><span class="brand-word">shai</span>
+        </button>
         <button class="model-btn" data-i18n-title="Choose model" title="Choose model"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
         <div class="top-toggles">
           <button class="pill-toggle" data-flag="webSearch" data-i18n-title="Search the web for sources before answering" title="Search the web for sources before answering">${ico("globe")}<span data-i18n="Web search">Web search</span></button>
@@ -183,7 +185,7 @@ export class ChatEngine {
   private bind(): void {
     const { store } = this.ctx;
 
-    this.topbar.querySelector(".sidebar-burger")!.addEventListener("click", () => {
+    this.topbar.querySelector(".brand-btn")!.addEventListener("click", () => {
       if (innerWidth <= 920) store.state.sidebarOpen = !store.state.sidebarOpen;
       else store.state.sideCollapsed = !store.state.sideCollapsed;
     });
