@@ -8,9 +8,9 @@ function req<T>(r: IDBRequest): Promise<T> {
 export class IDB {
   private dbp: Promise<IDBDatabase>;
 
-  constructor(name: string, stores: string[]) {
+  constructor(name: string, stores: string[], version = 1) {
     this.dbp = new Promise((resolve, reject) => {
-      const open = indexedDB.open(name, 1);
+      const open = indexedDB.open(name, version);
       open.onupgradeneeded = () => {
         for (const s of stores) {
           if (!open.result.objectStoreNames.contains(s)) open.result.createObjectStore(s);
