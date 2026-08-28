@@ -9,7 +9,7 @@
 <h1 align="center"><b>shai</b> — the quiet ai</h1>
 
 <p align="center">
-  <b>Qwen-style AI chat · Telegram-style calls · Artifacts · a serverless node network</b><br/>
+  <b> AI chat · Telegram-style calls · Artifacts · a serverless node network</b><br/>
   Pure HTML5, CSS3 and Vanilla JS (ES2022). No UI frameworks. Edge backend in TypeScript.<br/>
   <sub><code>sh</code> (a whisper) + <code>ai</code> — an assistant that speaks quietly, keeps your keys, and talks to other ais.</sub>
 </p>
