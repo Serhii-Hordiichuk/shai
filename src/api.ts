@@ -1,7 +1,8 @@
 export type ProviderId =
   | "local" | "gemini" | "deepseek" | "groq" | "openrouter"
   | "mistral" | "anthropic" | "openai" | "ollama"
-  | "xai" | "cerebras" | "sambanova";
+  | "xai" | "cerebras" | "sambanova" | "perplexity" | "fireworks"
+  | "together" | "replicate" | "huggingface" | "voyage" | "jina";
 
 export interface ModelInfo {
   id: string;
@@ -84,6 +85,13 @@ export const PROVIDERS: { id: ProviderId; name: string; keyEnv: string; keyUrl: 
   { id: "xai", name: "xAI (Grok)", keyEnv: "XAI_API_KEY", keyUrl: "https://console.x.ai/" },
   { id: "cerebras", name: "Cerebras", keyEnv: "CEREBRAS_API_KEY", keyUrl: "https://cloud.cerebras.ai/" },
   { id: "sambanova", name: "SambaNova", keyEnv: "SAMBANOVA_API_KEY", keyUrl: "https://cloud.sambanova.ai/" },
+  { id: "perplexity", name: "Perplexity", keyEnv: "PERPLEXITY_API_KEY", keyUrl: "https://www.perplexity.ai/settings/api" },
+  { id: "fireworks", name: "Fireworks AI", keyEnv: "FIREWORKS_API_KEY", keyUrl: "https://fireworks.ai/api-keys" },
+  { id: "together", name: "Together AI", keyEnv: "TOGETHER_API_KEY", keyUrl: "https://api.together.xyz/settings/api-keys" },
+  { id: "replicate", name: "Replicate", keyEnv: "REPLICATE_API_KEY", keyUrl: "https://replicate.com/account/api-tokens" },
+  { id: "huggingface", name: "Hugging Face", keyEnv: "HF_API_KEY", keyUrl: "https://huggingface.co/settings/tokens" },
+  { id: "voyage", name: "Voyage AI", keyEnv: "VOYAGE_API_KEY", keyUrl: "https://dash.voyageai.com/api-keys" },
+  { id: "jina", name: "Jina AI", keyEnv: "JINA_API_KEY", keyUrl: "https://jina.ai/" },
   { id: "ollama", name: "Ollama (local)", keyEnv: "OLLAMA_URL", keyUrl: "https://ollama.com" },
 ];
 
@@ -97,6 +105,13 @@ const OAI_BASE: Record<string, string> = {
   cerebras: "https://api.cerebras.ai/v1",
   sambanova: "https://api.sambanova.ai/v1",
   ollama: "http://localhost:11434/v1",
+  perplexity: "https://api.perplexity.ai",
+  fireworks: "https://api.fireworks.ai/inference/v1",
+  together: "https://api.together.xyz/v1",
+  replicate: "https://api.replicate.com/v1",
+  huggingface: "https://api-inference.huggingface.co/models",
+  voyage: "https://api.voyageai.com/v1",
+  jina: "https://api.jina.ai/v1",
 };
 
 export const KEY_ENV: Record<string, string> = {
@@ -104,6 +119,9 @@ export const KEY_ENV: Record<string, string> = {
   openrouter: "OPENROUTER_API_KEY", mistral: "MISTRAL_API_KEY",
   anthropic: "ANTHROPIC_API_KEY", gemini: "GOOGLE_API_KEY", ollama: "OLLAMA_URL",
   xai: "XAI_API_KEY", cerebras: "CEREBRAS_API_KEY", sambanova: "SAMBANOVA_API_KEY",
+  perplexity: "PERPLEXITY_API_KEY", fireworks: "FIREWORKS_API_KEY", together: "TOGETHER_API_KEY",
+  replicate: "REPLICATE_API_KEY", huggingface: "HF_API_KEY", voyage: "VOYAGE_API_KEY",
+  jina: "JINA_API_KEY",
 };
 
 export interface WebSource { title: string; url: string; snippet: string }
