@@ -120,8 +120,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       <aside class="sidebar">
         <div class="side-top">
           <button class="brand side-brand" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
-            <span class="brand-mark">${ico("logo")}</span>
-            <span class="brand-text"><span class="brand-name">shai</span><b data-i18n="the quiet ai">the quiet ai</b></span>
+            <span class="brand-word lg">shai</span>
           </button>
           <button class="btn btn-primary btn-new">${ico("plus")} <span data-i18n="New chat">New chat</span></button>
           <div class="side-search">${ico("search")}<input data-i18n-ph="Search chats…" placeholder="Search chats…" /></div>
@@ -322,7 +321,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   }
 
   function renderAbout(): void {
-    viewEls.about.innerHTML = `<div class="doc-view"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-mark sm">${ico("logo")}</span><span class="brand-word">shai</span></button><span class="head-row-title">${t("About & Legal")}</span></div><div class="md-content">${renderMarkdown(ABOUT_MD)}</div></div>`;
+    viewEls.about.innerHTML = `<div class="doc-view"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-word">shai</span></button><span class="head-row-title">${t("About & Legal")}</span></div><div class="md-content">${renderMarkdown(ABOUT_MD)}</div></div>`;
     viewEls.about.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
   }
 
@@ -330,7 +329,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const host = viewEls.settings;
     host.innerHTML = `
       <div class="set-view">
-        <header class="set-head"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-mark sm">${ico("logo")}</span><span class="brand-word">shai</span></button><h2>${ico("gear")} ${t("Settings")}</h2></div><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
+        <header class="set-head"><div class="head-row"><button class="brand-btn view-burger" title="${t("Menu")}"><span class="brand-word">shai</span></button><h2>${ico("gear")} ${t("Settings")}</h2></div><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
         <div class="set-tabs">
           <button class="set-tab on" data-tab="api">${ico("key")} ${t("Models & API")}</button>
           <button class="set-tab" data-tab="voice">${ico("mic")} ${t("Voice & Calls")}</button>

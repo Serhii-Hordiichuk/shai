@@ -142,7 +142,7 @@ export class ChatEngine {
     this.host.innerHTML = `
       <div class="chat-top">
         <button class="brand-btn" data-i18n-title="Toggle sidebar" title="Toggle sidebar">
-          <span class="brand-mark sm">${ico("logo")}</span><span class="brand-word">shai</span>
+          <span class="brand-word">shai</span>
         </button>
         <button class="model-btn" data-i18n-title="Choose model" title="Choose model"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
         <div class="top-toggles">

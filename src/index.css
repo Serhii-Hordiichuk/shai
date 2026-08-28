@@ -105,22 +105,6 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   z-index: 40;
 }
 .side-top { padding: 12px 12px 8px; display: flex; flex-direction: column; gap: 9px; }
-.brand { display: flex; align-items: center; gap: 10px; color: var(--text); padding: 1px 4px; }
-.brand-mark {
-  width: 33px; height: 33px; border-radius: 10px; flex: none;
-  background: linear-gradient(145deg, var(--accent), var(--accent-2));
-  color: #fff; display: grid; place-items: center;
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent) 38%, transparent);
-}
-.brand-mark svg { width: 18px; height: 18px; }
-.brand-text { font-family: "Unbounded", sans-serif; font-weight: 600; font-size: 14.5px; letter-spacing: 0.01em; line-height: 1.15; display: flex; flex-direction: column; }
-.brand-text b { font-family: "Manrope"; font-weight: 600; font-size: 10px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
-.brand-name {
-  font-family: "Unbounded", sans-serif; font-weight: 800; font-size: 19px;
-  letter-spacing: 0.02em; text-transform: lowercase; line-height: 1;
-  background: linear-gradient(120deg, var(--accent), var(--teal));
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
-}
 .call-name { display: flex; align-items: baseline; gap: 6px; }
 .call-name-sub { font-size: 0.62em; font-weight: 400; color: var(--teal); letter-spacing: 0.08em; text-transform: lowercase; }
 
@@ -195,19 +179,18 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
   backdrop-filter: blur(10px);
   flex: none; z-index: 5;
 }
-.brand-btn { display: flex; align-items: center; gap: 8px; padding: 3px 8px 3px 4px; border-radius: 11px; transition: background 0.14s, transform 0.1s; flex: none; }
+.brand-btn { display: flex; align-items: center; padding: 4px 9px; border-radius: 10px; transition: background 0.14s, transform 0.1s; flex: none; }
 .brand-btn:hover { background: var(--border); }
 .brand-btn:active { transform: scale(0.96); }
-.brand-btn .brand-mark { width: 27px; height: 27px; border-radius: 9px; }
-.brand-btn .brand-mark svg { width: 15px; height: 15px; }
 .brand-word {
-  font-family: "Unbounded", sans-serif; font-weight: 800; font-size: 14.5px;
-  letter-spacing: 0.06em; text-transform: lowercase; line-height: 1;
+  font-family: "Unbounded", sans-serif; font-weight: 800; font-size: 15px;
+  letter-spacing: 0.07em; text-transform: lowercase; line-height: 1;
   background: linear-gradient(100deg, var(--accent), var(--teal) 85%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
 }
+.brand-word.lg { font-size: 21px; letter-spacing: 0.05em; padding: 2px 2px 4px; }
 .brand { background: none; border: 0; width: 100%; text-align: left; cursor: pointer; font: inherit; }
-.side-brand { padding: 4px 6px; border-radius: 12px; transition: background 0.14s; }
+.side-brand { padding: 2px 4px 2px 8px; border-radius: 12px; transition: background 0.14s; }
 .side-brand:hover { background: var(--panel-2); }
 .call-more { display: none; }
 .side-top { position: relative; }
@@ -752,12 +735,11 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 }
 
 @media (max-width: 920px) {
-  .app-shell, .app-shell.art-open { grid-template-columns: 1fr; }
-  .sidebar { position: fixed; left: 0; top: 0; bottom: 0; width: min(290px, 84vw); transform: translateX(-103%); transition: transform 0.28s cubic-bezier(0.3, 0.9, 0.4, 1); box-shadow: var(--shadow-lg); }
-  .app-shell.side-open .sidebar { transform: none; }
+  .app-shell, .app-shell.art-open, .app-shell.side-collapsed { grid-template-columns: 0 1fr; }
+  .app-shell.side-open, .app-shell.side-open.art-open, .app-shell.side-open.side-collapsed { grid-template-columns: min(290px, 84vw) 1fr; }
+  .sidebar { position: relative; z-index: 40; width: auto; min-width: 0; overflow: hidden; box-shadow: none; }
   .sidebar-scrim { display: block; position: fixed; inset: 0; z-index: 35; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity 0.25s; }
   .app-shell.side-open .sidebar-scrim { opacity: 1; pointer-events: auto; }
-  .app-shell.side-collapsed { grid-template-columns: 1fr; }
   .view-burger { display: flex; }
   .head-row-title { display: block; }
   .head-row { margin-bottom: 6px; }
@@ -797,7 +779,6 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 }
 
 @media (max-width: 560px) {
-  .sidebar { width: min(290px, 88vw); }
   .top-actions .icon-btn { width: 36px; height: 36px; }
   .top-actions svg { width: 17px; height: 17px; }
   .model-btn { max-width: 150px; }
@@ -865,12 +846,8 @@ svg { display: block; width: 18px; height: 18px; flex: none; }
 }
 
 @media (max-width: 380px) {
-  .sidebar { width: min(280px, 90vw); }
+  .app-shell.side-open, .app-shell.side-open.art-open { grid-template-columns: min(258px, 82vw) 1fr; }
   .model-btn { max-width: 116px; }
-  .brand-mark { width: 29px; height: 29px; }
-  .brand-mark svg { width: 16px; height: 16px; }
-  .brand-text { font-size: 13px; }
-  .brand-text b { font-size: 9px; }
   .btn-new { font-size: 12.5px; }
   .ci-title { font-size: 12.5px; }
   .nav-item { font-size: 12.5px; padding: 8px 9px; }
