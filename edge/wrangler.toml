@@ -1,16 +1,7 @@
-# AI Studio — Edge Worker (Cloudflare)
-# Деплой:  npx wrangler deploy
-# Секрети: npx wrangler secret put OPENAI_API_KEY  (і так далі для кожного провайдера)
-
 name = "ai-studio-edge"
 main = "src/index.ts"
 compatibility_date = "2025-01-01"
 
 [[kv_namespaces]]
 binding = "KV"
-id = "REPLACE_WITH_YOUR_KV_ID"   # npx wrangler kv namespace create KV
-
-# Підтримувані змінні ENV (секрети):
-#   OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY,
-#   MISTRAL_API_KEY, GROQ_API_KEY, DEEPSEEK_API_KEY,
-#   OPENROUTER_API_KEY, OLLAMA_URL
+id = "REPLACE_WITH_YOUR_KV_ID"

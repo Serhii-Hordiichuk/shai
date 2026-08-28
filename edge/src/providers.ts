@@ -1,23 +1,13 @@
-/* ============================================================
-   Адаптери вендорів: побудова запитів + нормалізація SSE.
-   Ключі беруться виключно з ENV воркера — клієнт їх не бачить.
-   ============================================================ */
-
 export interface ProviderDef {
   id: string;
   name: string;
-  /** Назва змінної ENV з API-ключем (OLLAMA_URL — адреса сервера) */
   keyEnv: string;
-  /** Запит до каталогу моделей провайдера */
   modelsRequest(env: Record<string, string>): { url: string; headers: Record<string, string> } | null;
-  /** Мапінг сирого JSON каталогу → [{id}] */
   mapModels(raw: unknown): { id: string; name?: string }[];
-  /** Запит чату (стрімінг) */
   chatRequest(
     body: ChatBody,
     env: Record<string, string>
   ): { url: string; headers: Record<string, string>; body: unknown } | null;
-  /** Нормалізація SSE-події вендора → {type, text} | null */
   normalize(event: string, data: string): { type: "delta" | "thinking"; text: string } | null | "done";
 }
 
@@ -54,7 +44,7 @@ function openaiLike(id: string, name: string, keyEnv: string, base: string): Pro
     chatRequest: (body, env) => {
       if (!env[keyEnv]) return null;
       const messages = [...body.messages];
-      if (body.web) messages.unshift({ role: "system", content: `Контекст із веб-пошуку:\n${body.web}` });
+      if (body.web) messages.unshift({ role: "system", content: `Web search context:\n${body.web}` });
       return {
         url: `${base}/chat/completions`,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${env[keyEnv]}` },

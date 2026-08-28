@@ -1,8 +1,3 @@
-/* ============================================================
-   Кастомна Vanilla JS обгортка над IndexedDB (без бібліотек)
-   Сховища: chats, settings, models, misc
-   ============================================================ */
-
 function req<T>(r: IDBRequest): Promise<T> {
   return new Promise((resolve, reject) => {
     r.onsuccess = () => resolve(r.result as T);
@@ -43,40 +38,24 @@ export class IDB {
   async set(name: string, key: string, value: unknown): Promise<void> {
     try {
       await req((await this.store(name, "readwrite")).put(value, key));
-    } catch {
-      /* ignore quota / private mode */
-    }
+    } catch { /* quota / private mode */ }
   }
 
   async del(name: string, key: string): Promise<void> {
     try {
       await req((await this.store(name, "readwrite")).delete(key));
-    } catch {
-      /* noop */
-    }
+    } catch { /* noop */ }
   }
 
   async clear(name: string): Promise<void> {
     try {
       await req((await this.store(name, "readwrite")).clear());
-    } catch {
-      /* noop */
-    }
+    } catch { /* noop */ }
   }
 
-  async keys(name: string): Promise<IDBValidKey[]> {
-    try {
-      return await req<IDBValidKey[]>((await this.store(name, "readonly")).getAllKeys());
-    } catch {
-      return [];
-    }
-  }
-
-  /** Приблизний об'єм даних у байтах (JSON-серіалізація) */
   async estimateBytes(name: string): Promise<number> {
     try {
-      const store = await this.store(name, "readonly");
-      const all = await req<unknown[]>(store.getAll());
+      const all = await req<unknown[]>((await this.store(name, "readonly")).getAll());
       return JSON.stringify(all ?? []).length;
     } catch {
       return 0;

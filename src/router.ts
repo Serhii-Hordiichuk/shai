@@ -1,7 +1,3 @@
-/* ============================================================
-   Власний hash-роутер на чистому JS: '#/c/:id', '#/settings'...
-   ============================================================ */
-
 export type RouteParams = Record<string, string>;
 export type RouteHandler = (params: RouteParams) => void;
 

@@ -1,10 +1,3 @@
-/* ============================================================
-   Edge Worker (Cloudflare) — вхідна точка.
-   GET  /api/health — перевірка
-   GET  /api/models — агрегація /v1/models усіх провайдерів (KV-кеш)
-   POST /api/chat   — проксі до вендора з нормалізованим SSE
-   Деплой: cd edge && npx wrangler deploy
-   ============================================================ */
 import { EdgeRouter, json } from "./router";
 import { PROVIDERS, byId } from "./providers";
 import type { ChatBody } from "./providers";
@@ -15,10 +8,8 @@ interface Env extends Record<string, string> {
 
 const router = new EdgeRouter();
 
-/* ---------- health ---------- */
 router.get("/api/health", () => json({ ok: true, service: "ai-studio-edge", ts: Date.now() }));
 
-/* ---------- агрегація моделей + KV-кеш ---------- */
 router.get("/api/models", async (_req, _p, envRaw, ctx) => {
   const env = envRaw as Env;
   const CACHE_KEY = "models:v1";
@@ -28,10 +19,7 @@ router.get("/api/models", async (_req, _p, envRaw, ctx) => {
     return json({ models: (cached as { models: unknown[] }).models, cached: true });
   }
 
-  const configured = PROVIDERS.filter((p) => {
-    const v = env[p.keyEnv];
-    return !!v;
-  });
+  const configured = PROVIDERS.filter((p) => !!env[p.keyEnv]);
 
   const results = await Promise.allSettled(
     configured.map(async (p) => {
@@ -56,20 +44,18 @@ router.get("/api/models", async (_req, _p, envRaw, ctx) => {
 
   const models = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 
-  // кешуємо у фоні, не блокуючи відповідь
   ctx.waitUntil(env.KV.put(CACHE_KEY, JSON.stringify({ ts: Date.now(), models }), { expirationTtl: 3600 }).catch(() => {}));
   return json({ models, cached: false, providers: configured.map((p) => p.id) });
 });
 
-/* ---------- проксі чату зі стримінгом ---------- */
 router.post("/api/chat", async (req, _p, envRaw) => {
   const env = envRaw as Env;
   const body = (await req.json()) as ChatBody;
   const provider = byId(body.provider);
-  if (!provider) return json({ error: `Невідомий провайдер: ${body.provider}` }, 400);
+  if (!provider) return json({ error: `Unknown provider: ${body.provider}` }, 400);
 
   const chatReq = provider.chatRequest(body, env as unknown as Record<string, string>);
-  if (!chatReq) return json({ error: `На сервері немає ключа ${provider.keyEnv}` }, 400);
+  if (!chatReq) return json({ error: `Server has no ${provider.keyEnv} configured` }, 400);
 
   const upstream = await fetch(chatReq.url, {
     method: "POST",
@@ -81,7 +67,6 @@ router.post("/api/chat", async (req, _p, envRaw) => {
     return json({ error: `${provider.id}: HTTP ${upstream.status}`, detail: text.slice(0, 200) }, upstream.status);
   }
 
-  // Нормалізація SSE вендора → єдиний формат: event: message, data: {type, text}
   const reader = upstream.body.getReader();
   const dec = new TextDecoder();
   const enc = new TextEncoder();

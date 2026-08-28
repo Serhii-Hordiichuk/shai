@@ -1,24 +1,20 @@
 import { useEffect, useRef } from "react";
 import { createStudio } from "./app";
 
-/* Тонка обгортка-бутстрап: увесь застосунок — чистий Vanilla JS (src/app.ts) */
 export default function App() {
   const ref = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
-    let cancelled = false;
-    if (ref.current) {
-      createStudio(ref.current).then((c) => {
-        if (cancelled) c();
-        else cleanup = c;
-      });
-    }
+    if (!ref.current) return;
+    let cleanup: (() => void) | null = null;
+    let alive = true;
+    createStudio(ref.current).then((c) => {
+      if (alive) cleanup = c;
+      else c();
+    });
     return () => {
-      cancelled = true;
+      alive = false;
       cleanup?.();
     };
   }, []);
-
-  return <div ref={ref} className="app-root" />;
+  return <div ref={ref} style={{ height: "100%" }} />;
 }

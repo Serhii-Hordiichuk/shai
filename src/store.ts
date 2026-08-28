@@ -1,8 +1,3 @@
-/* ============================================================
-   Власний state management: Proxy + Observer (без бібліотек)
-   store.state.x = ... → сповіщає підписників шляху 'x'
-   ============================================================ */
-
 export type StoreListener = (path: string) => void;
 
 export class Store<T extends object> {
@@ -26,14 +21,12 @@ export class Store<T extends object> {
     return () => this.listeners.delete(listener);
   }
 
-  /** Підписка на конкретні шляхи ('*' — всі) */
   watch(paths: string[], fn: () => void): () => void {
     return this.on((p) => {
       if (paths.includes("*") || paths.includes(p)) fn();
     });
   }
 
-  /** Немутабельне оновлення вкладеного об'єкта: setDeep('settings', s => ({...s, theme:'dark'})) */
   setDeep<K extends keyof T>(key: K, updater: (value: T[K]) => T[K]): void {
     (this.state as Record<string, unknown>)[key as string] = updater(this.state[key]);
     this.emit(key as string);

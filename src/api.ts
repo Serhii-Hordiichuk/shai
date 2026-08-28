@@ -1,8 +1,3 @@
-/* ============================================================
-   EdgeClient: спілкування з Edge-воркером / вендорами напряму.
-   Власний SSE-парсер, нормалізація потоків, агрегація моделей.
-   ============================================================ */
-
 export type ProviderId =
   | "local" | "gemini" | "deepseek" | "groq" | "openrouter"
   | "mistral" | "anthropic" | "openai" | "ollama";
@@ -29,7 +24,6 @@ export type StreamEvent =
   | { type: "done"; text: string }
   | { type: "error"; message: string };
 
-/* ---------------- власний SSE-парсер ---------------- */
 export class SSEParser {
   private buf = "";
   private data = "";
@@ -55,25 +49,24 @@ export class SSEParser {
   }
 }
 
-/* ---------------- статичний каталог моделей ---------------- */
 export const STATIC_MODELS: ModelInfo[] = [
-  { id: "studio-local", name: "Studio Local (офлайн)", provider: "local", tag: "без API", free: true },
-  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini", tag: "потужна · зір", vision: true, free: true },
-  { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash-Lite", provider: "gemini", tag: "швидка · зір", vision: true, free: true },
-  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", provider: "gemini", tag: "зір", vision: true, free: true },
-  { id: "deepseek-chat", name: "DeepSeek V3.2", provider: "deepseek", tag: "потужна", free: true },
-  { id: "deepseek-reasoner", name: "DeepSeek R1", provider: "deepseek", tag: "мислить", reasoning: true, free: true },
-  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B (Groq)", provider: "groq", tag: "миттєва", free: true },
-  { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B (Groq)", provider: "groq", tag: "миттєва", free: true },
-  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", provider: "openrouter", tag: "безкоштовно", free: true },
-  { id: "deepseek/deepseek-r1t2-chimera:free", name: "DeepSeek R1T2 Chimera", provider: "openrouter", tag: "безкоштовно", free: true },
-  { id: "mistralai/devstral-small-2507:free", name: "Devstral Small", provider: "openrouter", tag: "безкоштовно · код", free: true },
-  { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash (OR)", provider: "openrouter", tag: "зір", vision: true },
-  { id: "mistral-small-latest", name: "Mistral Small 3.2", provider: "mistral", tag: "зір", vision: true },
-  { id: "mistral-large-latest", name: "Mistral Large", provider: "mistral", tag: "потужна" },
-  { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", provider: "anthropic", tag: "швидка", vision: true },
-  { id: "gpt-4.1-mini", name: "GPT-4.1 mini", provider: "openai", tag: "універсальна", vision: true },
-  { id: "qwen3-coder:30b", name: "Qwen3 Coder 30B (Ollama)", provider: "ollama", tag: "локально" },
+  { id: "studio-local", name: "Studio Local (offline)", provider: "local", tag: "no API", free: true },
+  { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini", tag: "powerful · vision", vision: true, free: true },
+  { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash-Lite", provider: "gemini", tag: "fast · vision", vision: true, free: true },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", provider: "gemini", tag: "vision", vision: true, free: true },
+  { id: "deepseek-chat", name: "DeepSeek V3.2", provider: "deepseek", tag: "powerful", free: true },
+  { id: "deepseek-reasoner", name: "DeepSeek R1", provider: "deepseek", tag: "reasoning", reasoning: true, free: true },
+  { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B (Groq)", provider: "groq", tag: "instant", free: true },
+  { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B (Groq)", provider: "groq", tag: "instant", free: true },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", provider: "openrouter", tag: "free", free: true },
+  { id: "deepseek/deepseek-r1t2-chimera:free", name: "DeepSeek R1T2 Chimera", provider: "openrouter", tag: "free", free: true },
+  { id: "mistralai/devstral-small-2507:free", name: "Devstral Small", provider: "openrouter", tag: "free · code", free: true },
+  { id: "google/gemini-2.0-flash-001", name: "Gemini 2.0 Flash (OR)", provider: "openrouter", tag: "vision", vision: true },
+  { id: "mistral-small-latest", name: "Mistral Small 3.2", provider: "mistral", tag: "vision", vision: true },
+  { id: "mistral-large-latest", name: "Mistral Large", provider: "mistral", tag: "powerful" },
+  { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", provider: "anthropic", tag: "fast", vision: true },
+  { id: "gpt-4.1-mini", name: "GPT-4.1 mini", provider: "openai", tag: "all-round", vision: true },
+  { id: "qwen3-coder:30b", name: "Qwen3 Coder 30B (Ollama)", provider: "ollama", tag: "local" },
 ];
 
 export const PROVIDERS: { id: ProviderId; name: string; keyEnv: string; keyUrl: string }[] = [
@@ -84,7 +77,7 @@ export const PROVIDERS: { id: ProviderId; name: string; keyEnv: string; keyUrl: 
   { id: "mistral", name: "Mistral", keyEnv: "MISTRAL_API_KEY", keyUrl: "https://console.mistral.ai/api-keys" },
   { id: "anthropic", name: "Anthropic", keyEnv: "ANTHROPIC_API_KEY", keyUrl: "https://console.anthropic.com/settings/keys" },
   { id: "openai", name: "OpenAI", keyEnv: "OPENAI_API_KEY", keyUrl: "https://platform.openai.com/api-keys" },
-  { id: "ollama", name: "Ollama (локально)", keyEnv: "OLLAMA_URL", keyUrl: "https://ollama.com" },
+  { id: "ollama", name: "Ollama (local)", keyEnv: "OLLAMA_URL", keyUrl: "https://ollama.com" },
 ];
 
 const OAI_BASE: Record<string, string> = {
@@ -102,30 +95,28 @@ const KEY_ENV: Record<string, string> = {
   anthropic: "ANTHROPIC_API_KEY", gemini: "GOOGLE_API_KEY", ollama: "OLLAMA_URL",
 };
 
-/* ---------------- реальний веб-пошук (Wikipedia, CORS-friendly) ---------------- */
 export interface WebSource { title: string; url: string; snippet: string }
 
 export async function webSearch(query: string, signal?: AbortSignal): Promise<WebSource[]> {
   const q = query.replace(/[?.!,]+$/g, "").trim();
-  const url = `https://uk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=4&format=json&origin=*`;
+  const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q)}&srlimit=4&format=json&origin=*`;
   const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error("Пошук недоступний");
+  if (!res.ok) throw new Error("Search is unavailable");
   const json: any = await res.json();
   return (json?.query?.search ?? []).map((s: any) => ({
     title: s.title as string,
-    url: `https://uk.wikipedia.org/wiki/${encodeURIComponent(String(s.title).replace(/ /g, "_"))}`,
+    url: `https://en.wikipedia.org/wiki/${encodeURIComponent(String(s.title).replace(/ /g, "_"))}`,
     snippet: String(s.snippet ?? "").replace(/<[^>]+>/g, "").slice(0, 160),
   }));
 }
 
-/* ---------------- нормалізація потоків вендорів ---------------- */
 async function* parseSseStream(
   res: Response,
   map: (ev: { event: string; data: string }) => StreamEvent | null,
   signal: AbortSignal
 ): AsyncGenerator<StreamEvent> {
   if (!res.body) {
-    yield { type: "error", message: `Порожня відповідь (${res.status})` };
+    yield { type: "error", message: `Empty response (HTTP ${res.status})` };
     return;
   }
   const reader = res.body.getReader();
@@ -192,7 +183,6 @@ async function* geminiDirect(
     if (m.content) parts.push({ text: m.content });
     if (parts.length) contents.push({ role: m.role === "assistant" ? "model" : "user", parts });
   }
-  // чергуємо ролі, як вимагає Gemini API
   const fixed: any[] = [];
   for (const c of contents) {
     const last = fixed[fixed.length - 1];
@@ -207,8 +197,7 @@ async function* geminiDirect(
   yield* parseSseStream(res, (ev) => {
     try {
       const j = JSON.parse(ev.data);
-      const cand = j?.candidates?.[0];
-      const part = cand?.content?.parts?.[0];
+      const part = j?.candidates?.[0]?.content?.parts?.[0];
       if (part?.thought) return { type: "thinking", text: part.text ?? "" };
       if (part?.text) return { type: "delta", text: part.text };
       return null;
@@ -221,10 +210,8 @@ async function* anthropicDirect(
 ): AsyncGenerator<StreamEvent> {
   const system = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n");
   const msgs = messages.filter((m) => m.role !== "system").map((m) => ({ role: m.role, content: m.content }));
-  const body: any = {
-    model, max_tokens: 2048, system, messages: msgs, stream: true,
-  };
-  if (deep) { body.thinking = { type: "enabled", budget_tokens: 1024 }; body.temperature = 1; delete body.system && 0; }
+  const body: any = { model, max_tokens: 2048, system, messages: msgs, stream: true };
+  if (deep) { body.thinking = { type: "enabled", budget_tokens: 1024 }; body.temperature = 1; }
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -249,7 +236,6 @@ async function* anthropicDirect(
   }, signal);
 }
 
-/* ---------------- EdgeClient ---------------- */
 export interface ChatOpts {
   keys: Record<string, string>;
   signal: AbortSignal;
@@ -264,7 +250,6 @@ export class EdgeClient {
     return this.getEdgeUrl().replace(/\/$/, "");
   }
 
-  /** Агрегація моделей: Edge → прямі запити → статичний каталог */
   async fetchModels(keys: Record<string, string>): Promise<ModelInfo[]> {
     let list: ModelInfo[] = [];
     if (this.edgeUrl) {
@@ -274,7 +259,7 @@ export class EdgeClient {
           const j: any = await res.json();
           if (Array.isArray(j?.models)) list = j.models;
         }
-      } catch { /* fallback нижче */ }
+      } catch { /* fall back below */ }
     }
     if (!list.length) {
       const direct = await Promise.allSettled(
@@ -284,14 +269,11 @@ export class EdgeClient {
             const res = await fetch(`${base}/models`, { headers: { Authorization: `Bearer ${keys[KEY_ENV[p]]}` } });
             if (!res.ok) return [] as ModelInfo[];
             const j: any = await res.json();
-            return (j?.data ?? [])
-              .slice(0, 24)
-              .map((m: any) => ({ id: m.id, name: m.id, provider: p as ProviderId }));
+            return (j?.data ?? []).slice(0, 24).map((m: any) => ({ id: m.id, name: m.id, provider: p as ProviderId }));
           })
       );
       for (const d of direct) if (d.status === "fulfilled") list.push(...d.value);
     }
-    // локальна модель — завжди доступна; живі моделі мають пріоритет над статичними
     const merged = [
       ...STATIC_MODELS.filter((m) => m.provider === "local"),
       ...list,
@@ -308,11 +290,9 @@ export class EdgeClient {
     } catch { return false; }
   }
 
-  /** Уніфікований потік відповідей */
   async *chat(model: ModelInfo, messages: ChatMsg[], opts: ChatOpts): AsyncGenerator<StreamEvent> {
     const { keys, signal, deep, webContext } = opts;
 
-    // 1) Edge-проксі (ключі на сервері)
     if (this.edgeUrl && model.provider !== "local") {
       const res = await fetch(`${this.edgeUrl}/api/chat`, {
         method: "POST",
@@ -332,15 +312,14 @@ export class EdgeClient {
       return;
     }
 
-    // 2) прямі виклики вендорів (ключі користувача у браузері)
     const key = keys[KEY_ENV[model.provider]];
     if (model.provider === "local") throw new Error("local handled by engine");
     if (!key && model.provider !== "ollama") {
-      yield { type: "error", message: `Немає ключа ${KEY_ENV[model.provider]}. Додайте його в Налаштуваннях → API, або задеплойте Edge-воркер.` };
+      yield { type: "error", message: `Missing key ${KEY_ENV[model.provider]}. Add it under Settings → Models & API, or deploy the Edge worker.` };
       return;
     }
     const msgs = webContext
-      ? [{ role: "system" as const, content: `Контекст із веб-пошуку (посилайся на джерела):\n${webContext}` }, ...messages]
+      ? [{ role: "system" as const, content: `Web search context (cite the sources):\n${webContext}` }, ...messages]
       : messages;
     if (model.provider === "gemini") yield* geminiDirect(model.id, msgs, keys, deep, signal);
     else if (model.provider === "anthropic") yield* anthropicDirect(model.id, msgs, keys, deep, signal);
@@ -349,4 +328,4 @@ export class EdgeClient {
 }
 
 export const providerName = (p: ProviderId): string =>
-  p === "local" ? "Локально" : PROVIDERS.find((x) => x.id === p)?.name ?? p;
+  p === "local" ? "Local" : PROVIDERS.find((x) => x.id === p)?.name ?? p;

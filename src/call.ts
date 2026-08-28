@@ -1,7 +1,3 @@
-/* ============================================================
-   CallManager — голосові та відеодзвінки у стилі Telegram.
-   Web Audio (хвилі + barge-in), Web Speech STT → API → TTS.
-   ============================================================ */
 import { ico } from "./icons";
 import { el } from "./ui";
 
@@ -49,51 +45,48 @@ export class CallManager {
   private captionEl: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private videoEl: HTMLVideoElement | null = null;
-  private destroyed = false;
+  private userLevel = 0;
 
   constructor(private deps: CallDeps) {}
 
   async start(kind: "audio" | "video"): Promise<void> {
     this.kind = kind;
     this.buildOverlay();
-    this.setStatus("З'єднання…");
+    this.setStatus("Connecting…");
     this.ringBeep();
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true },
         video: kind === "video" ? { width: 640, height: 480 } : false,
       });
-      if (this.destroyed) { this.stopTracks(); return; }
       this.activate();
     } catch (e: any) {
-      this.setStatus("Немає доступу до мікрофона");
-      this.showError(e?.name === "NotAllowedError"
-        ? "Браузер заблокував мікрофон. Дозвольте доступ у налаштуваннях сайту й повторіть."
-        : "Не вдалося отримати мікрофон. Перевірте, чи під'єднаний пристрій.");
+      this.setStatus("No microphone access");
+      this.deps.onError(e?.name === "NotAllowedError"
+        ? "The browser blocked the microphone. Allow access in site settings and try again."
+        : "Could not get the microphone. Check that a device is connected.");
     }
   }
 
   private buildOverlay(): void {
-    this.end(false);
     const ov = el("div", "call-overlay");
     ov.innerHTML = `
-      <div class="call-bg"></div>
       <div class="call-card">
         <div class="call-stage">
           <div class="call-remote">
             <div class="avatar-wrap"><canvas class="avatar-canvas"></canvas></div>
             <div class="call-name">Studio AI</div>
-            <div class="call-status">З'єднання…</div>
+            <div class="call-status">Connecting…</div>
             <div class="call-caption"><span class="cap-who"></span><span class="cap-text"></span></div>
           </div>
           <video class="call-local" muted playsinline ${this.kind === "audio" ? "hidden" : ""}></video>
         </div>
         <div class="call-controls">
-          <button class="call-btn" data-act="mic" title="Мікрофон">${ico("mic")}</button>
-          ${this.kind === "video" ? `<button class="call-btn" data-act="cam" title="Камера">${ico("video")}</button>` : ""}
-          <button class="call-btn call-end" data-act="end" title="Завершити">${ico("phoneEnd")}</button>
+          <button class="call-btn" data-act="mic" title="Microphone">${ico("mic")}</button>
+          ${this.kind === "video" ? `<button class="call-btn" data-act="cam" title="Camera">${ico("video")}</button>` : ""}
+          <button class="call-btn call-end" data-act="end" title="Hang up">${ico("phoneEnd")}</button>
         </div>
-        <div class="call-hint">${SR ? "Говоріть — асистент почує і відповість голосом" : "Web Speech API недоступний у цьому браузері — спробуйте Chrome"}</div>
+        <div class="call-hint">${SR ? "Speak — the assistant will hear you and reply with voice" : "Web Speech API is unavailable in this browser — try Chrome"}</div>
       </div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add("show"));
@@ -101,8 +94,7 @@ export class CallManager {
     this.statusEl = ov.querySelector(".call-status");
     this.captionEl = ov.querySelector(".call-caption");
     this.canvas = ov.querySelector(".avatar-canvas");
-    const video = ov.querySelector("video")!;
-    this.videoEl = video;
+    this.videoEl = ov.querySelector("video")!;
     ov.querySelector(".call-controls")!.addEventListener("click", (e) => {
       const btn = (e.target as HTMLElement).closest("button");
       const act = btn?.getAttribute("data-act");
@@ -115,7 +107,6 @@ export class CallManager {
   private activate(): void {
     this.state = "active";
     this.startedAt = Date.now();
-    // Web Audio: аналізатор мікрофона
     this.ac = new AudioContext();
     const src = this.ac.createMediaStreamSource(this.stream!);
     this.analyser = this.ac.createAnalyser();
@@ -127,22 +118,17 @@ export class CallManager {
       this.videoEl.srcObject = this.stream;
       this.videoEl.play().catch(() => {});
     }
-    // таймер
-    const timerEl = this.statusEl!;
     this.timerInt = window.setInterval(() => {
-      if (this.state === "active" && !this.busy && !this.speaking) {
-        timerEl.textContent = fmtTime((Date.now() - this.startedAt) / 1000);
-      }
+      if (this.state === "active" && !this.busy) this.setStatus(fmtTime((Date.now() - this.startedAt) / 1000));
     }, 500);
-    timerEl.textContent = "00:00";
+    this.setStatus("00:00");
 
     if (SR) this.startSTT();
     this.loop();
-    this.setCaption("ai", "Привіт! Я на зв'язку — говоріть.");
-    void this.speak("Привіт! Я на зв'язку. Чим можу допомогти?");
+    this.setCaption("ai", "Hi! I'm on the line — go ahead.");
+    void this.speak("Hi! I'm on the line. How can I help?");
   }
 
-  /* ---------- STT ---------- */
   private startSTT(): void {
     const rec = new SR();
     rec.continuous = true;
@@ -169,10 +155,10 @@ export class CallManager {
       }
     };
     rec.onerror = (e: any) => {
-      if (e.error === "not-allowed") this.setStatus("Мікрофон заблоковано");
+      if (e.error === "not-allowed") this.setStatus("Microphone blocked");
     };
     rec.onend = () => {
-      if (this.state === "active" && !this.destroyed) {
+      if (this.state === "active") {
         try { rec.start(); } catch { /* already started */ }
       }
     };
@@ -181,38 +167,36 @@ export class CallManager {
   }
 
   private async onUserSpeech(text: string): Promise<void> {
-    if (this.speaking) this.stopSpeaking(); // barge-in за фактом репліки
+    if (this.speaking) this.stopSpeaking();
     this.setCaption("me", text);
     this.lines.push({ who: "me", text });
     this.busy = true;
-    this.setStatus("Асистент думає…");
+    this.setStatus("Assistant is thinking…");
     try {
       const reply = await this.deps.getReply(text);
-      if (this.destroyed) return;
       this.lines.push({ who: "ai", text: reply });
       this.setCaption("ai", reply.length > 140 ? reply.slice(0, 137) + "…" : reply);
-      this.setStatus("Говорить асистент…");
+      this.setStatus("Assistant is speaking…");
       await this.speak(reply);
-    } catch (e: any) {
-      this.setCaption("ai", "Вибачте, не почув відповідь. Спробуйте ще раз.");
+    } catch {
+      this.setCaption("ai", "Sorry, I missed that. Try again.");
     } finally {
       this.busy = false;
       if (this.state === "active") this.setStatus(fmtTime((Date.now() - this.startedAt) / 1000));
     }
   }
 
-  /* ---------- TTS ---------- */
   private speak(text: string): Promise<void> {
     return new Promise((resolve) => {
       const synth = window.speechSynthesis;
-      if (!synth || this.destroyed) { resolve(); return; }
+      if (!synth) { resolve(); return; }
       synth.cancel();
       const plain = text.replace(/[*_`#>\[\]()]/g, "").replace(/\n+/g, ". ").slice(0, 600);
       const u = new SpeechSynthesisUtterance(plain);
-      u.lang = "uk-UA";
+      u.lang = "en-US";
       u.rate = this.deps.ttsRate;
       const voices = synth.getVoices();
-      const v = voices.find((x) => x.name === this.deps.ttsVoice) ?? voices.find((x) => x.lang.startsWith("uk"));
+      const v = voices.find((x) => x.name === this.deps.ttsVoice) ?? voices.find((x) => x.lang.startsWith("en"));
       if (v) u.voice = v;
       u.onstart = () => { this.speaking = true; };
       const done = () => {
@@ -231,13 +215,11 @@ export class CallManager {
     this.speaking = false;
   }
 
-  /* ---------- Анімація аватара + barge-in ---------- */
   private loop = (): void => {
-    if (this.destroyed) return;
+    if (this.state === "closed") return;
     this.raf = requestAnimationFrame(this.loop);
     this.phase += 0.02;
 
-    // barge-in: аналіз амплітуди мікрофона під час мовлення ШІ
     if (this.analyser && this.ringBuf) {
       this.analyser.getByteFrequencyData(this.ringBuf as unknown as Uint8Array<ArrayBuffer>);
       let sum = 0;
@@ -248,16 +230,14 @@ export class CallManager {
         if (this.loudFrames > 10) {
           this.loudFrames = 0;
           this.stopSpeaking();
-          this.setCaption("me", "…(перервано)", true);
+          this.setCaption("me", "…(interrupted)", true);
         }
       }
       this.userLevel = level;
     }
-    // псевдо-амплітуда голосу ШІ (синхронізована з TTS)
     this.talkAmp += ((this.speaking ? 0.35 + Math.abs(Math.sin(this.phase * 3.1)) * 0.5 : 0) - this.talkAmp) * 0.12;
     this.drawAvatar();
   };
-  private userLevel = 0;
 
   private drawAvatar(): void {
     const cv = this.canvas;
@@ -271,9 +251,7 @@ export class CallManager {
     g.clearRect(0, 0, size, size);
     const cx = size / 2, cy = size / 2;
     const R = size / 2 - 26;
-    const dark = document.documentElement.dataset.theme === "dark";
 
-    // зовнішнє кільце — спектр мікрофона користувача
     const bars = 56;
     for (let i = 0; i < bars; i++) {
       const a = (i / bars) * Math.PI * 2 - Math.PI / 2;
@@ -288,7 +266,6 @@ export class CallManager {
       g.lineCap = "round";
       g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
     }
-    // пульсуючі кільця стану
     for (let k = 0; k < 3; k++) {
       const p = (this.phase * 0.5 + k / 3) % 1;
       g.strokeStyle = `rgba(97, 92, 237, ${(1 - p) * 0.35})`;
@@ -297,19 +274,16 @@ export class CallManager {
       g.arc(cx, cy, 40 + p * (R - 34), 0, Math.PI * 2);
       g.stroke();
     }
-    // ядро-аватар (lip-sync: scale від talkAmp)
     const r = 42 + this.talkAmp * 16;
     const grad = g.createRadialGradient(cx - r * 0.3, cy - r * 0.35, r * 0.2, cx, cy, r);
     grad.addColorStop(0, "#8b86ff");
     grad.addColorStop(1, "#4a44c9");
     g.fillStyle = grad;
     g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
-    // «очі»
     const blink = Math.sin(this.phase * 0.7) > 0.985 ? 0.15 : 1;
     g.fillStyle = "rgba(255,255,255,0.92)";
     g.beginPath(); g.ellipse(cx - 13, cy - 6, 4.5, 4.5 * blink, 0, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.ellipse(cx + 13, cy - 6, 4.5, 4.5 * blink, 0, 0, Math.PI * 2); g.fill();
-    // «рот» — дуга, що розкривається під час мовлення
     g.strokeStyle = "rgba(255,255,255,0.92)";
     g.lineWidth = 3;
     g.lineCap = "round";
@@ -317,7 +291,6 @@ export class CallManager {
     const open = 2 + this.talkAmp * 12;
     g.ellipse(cx, cy + 14, 11, open, 0, 0.15 * Math.PI, 0.85 * Math.PI);
     g.stroke();
-    // індикатор «думає»
     if (this.busy) {
       for (let d = 0; d < 3; d++) {
         const dy = Math.sin(this.phase * 6 + d) * 3;
@@ -327,13 +300,12 @@ export class CallManager {
     }
   }
 
-  /* ---------- Керування ---------- */
   private toggleMic(btn: HTMLElement): void {
     this.micOn = !this.micOn;
     this.stream?.getAudioTracks().forEach((t) => (t.enabled = this.micOn));
     btn.classList.toggle("off", !this.micOn);
     btn.innerHTML = ico(this.micOn ? "mic" : "micOff");
-    this.setStatus(this.micOn ? fmtTime((Date.now() - this.startedAt) / 1000) : "Мікрофон вимкнено");
+    this.setStatus(this.micOn ? fmtTime((Date.now() - this.startedAt) / 1000) : "Microphone muted");
   }
 
   private toggleCam(btn: HTMLElement): void {
@@ -349,13 +321,8 @@ export class CallManager {
     if (!this.captionEl) return;
     this.captionEl.classList.add("show");
     this.captionEl.classList.toggle("interim", interim);
-    this.captionEl.querySelector(".cap-who")!.textContent = who === "me" ? "Ви" : "AI";
+    this.captionEl.querySelector(".cap-who")!.textContent = who === "me" ? "You" : "AI";
     this.captionEl.querySelector(".cap-text")!.textContent = text;
-  }
-
-  private showError(msg: string): void {
-    this.setStatus("Помилка");
-    this.deps.onError(msg);
   }
 
   private ringBeep(): void {
@@ -377,24 +344,18 @@ export class CallManager {
     } catch { /* noop */ }
   }
 
-  private stopTracks(): void {
-    this.stream?.getTracks().forEach((t) => t.stop());
-    this.stream = null;
-  }
-
   end(log: boolean): void {
-    if (this.destroyed && !log) return;
-    if (!this.overlay && !this.startedAt) return; // свіжий екземпляр — немає чого завершувати
+    if (this.state === "closed") return;
     const sec = this.startedAt ? (Date.now() - this.startedAt) / 1000 : 0;
     const lines = this.lines;
     const kind = this.kind;
-    this.destroyed = true;
     this.state = "closed";
     cancelAnimationFrame(this.raf);
     clearInterval(this.timerInt);
     try { this.rec?.stop(); } catch { /* noop */ }
     this.stopSpeaking();
-    this.stopTracks();
+    this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream = null;
     try { this.ac?.close(); } catch { /* noop */ }
     if (this.overlay) {
       const node = this.overlay;
@@ -406,7 +367,6 @@ export class CallManager {
   }
 }
 
-/* ---------- Швидка диктовка в композер ---------- */
 export function dictate(
   lang: string,
   onText: (text: string, isFinal: boolean) => void,
