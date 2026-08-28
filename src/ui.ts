@@ -1,4 +1,5 @@
 import { ico } from "./icons";
+import { t } from "./i18n";
 
 export function el<T extends HTMLElement>(tag: string, cls?: string, html?: string): T {
   const e = document.createElement(tag) as T;
@@ -13,12 +14,12 @@ export function toast(msg: string, kind: "info" | "ok" | "err" = "info"): void {
     toastWrap = el("div", "toast-wrap");
     document.body.appendChild(toastWrap);
   }
-  const t = el("div", `toast toast-${kind}`, `${ico(kind === "err" ? "alert" : kind === "ok" ? "check" : "info")}<span>${msg}</span>`);
-  toastWrap.appendChild(t);
-  requestAnimationFrame(() => t.classList.add("show"));
+  const tn = el("div", `toast toast-${kind}`, `${ico(kind === "err" ? "alert" : kind === "ok" ? "check" : "info")}<span>${msg}</span>`);
+  toastWrap.appendChild(tn);
+  requestAnimationFrame(() => tn.classList.add("show"));
   setTimeout(() => {
-    t.classList.remove("show");
-    setTimeout(() => t.remove(), 250);
+    tn.classList.remove("show");
+    setTimeout(() => tn.remove(), 250);
   }, 3400);
 }
 
@@ -74,9 +75,9 @@ export function confirmDialog(opts: { title: string; text: string; okText?: stri
       body: `<p class="confirm-text">${opts.text}</p>`,
       onClose: () => resolve(false),
       actions: [
-        { label: "Cancel", kind: "ghost", onClick: () => modal.close() },
+        { label: t("Cancel"), kind: "ghost", onClick: () => modal.close() },
         {
-          label: opts.okText ?? "Confirm",
+          label: t(opts.okText ?? "Confirm"),
           kind: opts.danger ? "danger" : "primary",
           onClick: () => { modal.onCloseCb = undefined; modal.close(); resolve(true); },
         },
@@ -88,16 +89,16 @@ export function confirmDialog(opts: { title: string; text: string; okText?: stri
 export function promptDialog(opts: { title: string; label: string; value?: string; placeholder?: string }): Promise<string | null> {
   return new Promise((resolve) => {
     const wrap = el("div", "prompt-wrap");
-    wrap.innerHTML = `<label class="field-label">${opts.label}</label><input class="text-input" value="${(opts.value ?? "").replace(/"/g, "&quot;")}" placeholder="${opts.placeholder ?? ""}" />`;
+    wrap.innerHTML = `<label class="field-label">${t(opts.label)}</label><input class="text-input" value="${(opts.value ?? "").replace(/"/g, "&quot;")}" placeholder="${opts.placeholder ?? ""}" />`;
     const input = wrap.querySelector("input")!;
     modal.open({
-      title: opts.title,
+      title: t(opts.title),
       body: wrap,
       onClose: () => resolve(null),
       actions: [
-        { label: "Cancel", kind: "ghost", onClick: () => modal.close() },
+        { label: t("Cancel"), kind: "ghost", onClick: () => modal.close() },
         {
-          label: "Save", kind: "primary",
+          label: t("Save"), kind: "primary",
           onClick: () => { const v = input.value.trim(); modal.onCloseCb = undefined; modal.close(); resolve(v); },
         },
       ],
@@ -132,8 +133,8 @@ export function openPopover(anchor: HTMLElement, content: HTMLElement, opts: { a
     opts.onClose?.();
   };
   const onDown = (e: MouseEvent) => {
-    const t = e.target as Node;
-    if (!pop.contains(t) && !anchor.contains(t)) close();
+    const tg = e.target as Node;
+    if (!pop.contains(tg) && !anchor.contains(tg)) close();
   };
   const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
   setTimeout(() => {

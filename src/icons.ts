@@ -47,6 +47,7 @@ export const icons: Record<string, string> = {
   bolt: S('<path d="M13 3 5 13.5h5.5L11 21l8-10.5h-5.5L13 3Z"/>'),
   layers: S('<path d="m12 3.5 8.5 4.5L12 12.5 3.5 8 12 3.5Z"/><path d="m3.5 12 8.5 4.5L20.5 12"/><path d="m3.5 16 8.5 4.5L20.5 16"/>'),
   wand: S('<path d="m6 18 9.5-9.5"/><path d="M17.5 3.5v3M16 5h3"/><path d="M20 10.5v2M19 11.5h2"/><path d="M8 3.5v2M7 4.5h2"/>'),
+  eye: S('<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>'),
 };
 
 export const ico = (name: string): string => icons[name] ?? "";

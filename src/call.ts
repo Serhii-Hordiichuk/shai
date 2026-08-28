@@ -1,5 +1,6 @@
 import { ico } from "./icons";
 import { el } from "./ui";
+import { t, getLang } from "./i18n";
 
 export interface CallLine { who: "me" | "ai"; text: string }
 
@@ -52,7 +53,7 @@ export class CallManager {
   async start(kind: "audio" | "video"): Promise<void> {
     this.kind = kind;
     this.buildOverlay();
-    this.setStatus("Connecting…");
+    this.setStatus(t("Connecting…"));
     this.ringBeep();
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
@@ -61,10 +62,10 @@ export class CallManager {
       });
       this.activate();
     } catch (e: any) {
-      this.setStatus("No microphone access");
-      this.deps.onError(e?.name === "NotAllowedError"
+      this.setStatus(t("No microphone access"));
+      this.deps.onError(t(e?.name === "NotAllowedError"
         ? "The browser blocked the microphone. Allow access in site settings and try again."
-        : "Could not get the microphone. Check that a device is connected.");
+        : "Couldn't access the microphone. Check that a device is connected."));
     }
   }
 
@@ -76,17 +77,17 @@ export class CallManager {
           <div class="call-remote">
             <div class="avatar-wrap"><canvas class="avatar-canvas"></canvas></div>
             <div class="call-name">Studio AI</div>
-            <div class="call-status">Connecting…</div>
+            <div class="call-status">${t("Connecting…")}</div>
             <div class="call-caption"><span class="cap-who"></span><span class="cap-text"></span></div>
           </div>
           <video class="call-local" muted playsinline ${this.kind === "audio" ? "hidden" : ""}></video>
         </div>
         <div class="call-controls">
-          <button class="call-btn" data-act="mic" title="Microphone">${ico("mic")}</button>
-          ${this.kind === "video" ? `<button class="call-btn" data-act="cam" title="Camera">${ico("video")}</button>` : ""}
-          <button class="call-btn call-end" data-act="end" title="Hang up">${ico("phoneEnd")}</button>
+          <button class="call-btn" data-act="mic" title="${t("Microphone")}">${ico("mic")}</button>
+          ${this.kind === "video" ? `<button class="call-btn" data-act="cam" title="${t("Camera")}">${ico("video")}</button>` : ""}
+          <button class="call-btn call-end" data-act="end" title="${t("End call")}">${ico("phoneEnd")}</button>
         </div>
-        <div class="call-hint">${SR ? "Speak — the assistant will hear you and reply with voice" : "Web Speech API is unavailable in this browser — try Chrome"}</div>
+        <div class="call-hint">${t(SR ? "Speak — the assistant will hear you and reply by voice" : "Web Speech API isn't available in this browser — try Chrome")}</div>
       </div>`;
     document.body.appendChild(ov);
     requestAnimationFrame(() => ov.classList.add("show"));
@@ -125,8 +126,8 @@ export class CallManager {
 
     if (SR) this.startSTT();
     this.loop();
-    this.setCaption("ai", "Hi! I'm on the line — go ahead.");
-    void this.speak("Hi! I'm on the line. How can I help?");
+    this.setCaption("ai", t("Hello! I'm online — go ahead and speak."));
+    void this.speak(t("Hi! I'm on the line. How can I help?"));
   }
 
   private startSTT(): void {
@@ -155,7 +156,7 @@ export class CallManager {
       }
     };
     rec.onerror = (e: any) => {
-      if (e.error === "not-allowed") this.setStatus("Microphone blocked");
+      if (e.error === "not-allowed") this.setStatus(t("Mic access blocked"));
     };
     rec.onend = () => {
       if (this.state === "active") {
@@ -171,15 +172,15 @@ export class CallManager {
     this.setCaption("me", text);
     this.lines.push({ who: "me", text });
     this.busy = true;
-    this.setStatus("Assistant is thinking…");
+    this.setStatus(t("Assistant is thinking…"));
     try {
       const reply = await this.deps.getReply(text);
       this.lines.push({ who: "ai", text: reply });
       this.setCaption("ai", reply.length > 140 ? reply.slice(0, 137) + "…" : reply);
-      this.setStatus("Assistant is speaking…");
+      this.setStatus(t("Assistant is speaking…"));
       await this.speak(reply);
     } catch {
-      this.setCaption("ai", "Sorry, I missed that. Try again.");
+      this.setCaption("ai", t("Sorry, I missed that. Try again."));
     } finally {
       this.busy = false;
       if (this.state === "active") this.setStatus(fmtTime((Date.now() - this.startedAt) / 1000));
@@ -193,10 +194,10 @@ export class CallManager {
       synth.cancel();
       const plain = text.replace(/[*_`#>\[\]()]/g, "").replace(/\n+/g, ". ").slice(0, 600);
       const u = new SpeechSynthesisUtterance(plain);
-      u.lang = "en-US";
+      u.lang = this.deps.sttLang || (getLang() === "uk" ? "uk-UA" : "en-US");
       u.rate = this.deps.ttsRate;
       const voices = synth.getVoices();
-      const v = voices.find((x) => x.name === this.deps.ttsVoice) ?? voices.find((x) => x.lang.startsWith("en"));
+      const v = voices.find((x) => x.name === this.deps.ttsVoice) ?? voices.find((x) => x.lang.startsWith(getLang() === "uk" ? "uk" : "en"));
       if (v) u.voice = v;
       u.onstart = () => { this.speaking = true; };
       const done = () => {
@@ -230,7 +231,7 @@ export class CallManager {
         if (this.loudFrames > 10) {
           this.loudFrames = 0;
           this.stopSpeaking();
-          this.setCaption("me", "…(interrupted)", true);
+          this.setCaption("me", t("(interrupted)"), true);
         }
       }
       this.userLevel = level;
@@ -302,26 +303,26 @@ export class CallManager {
 
   private toggleMic(btn: HTMLElement): void {
     this.micOn = !this.micOn;
-    this.stream?.getAudioTracks().forEach((t) => (t.enabled = this.micOn));
+    this.stream?.getAudioTracks().forEach((tr) => (tr.enabled = this.micOn));
     btn.classList.toggle("off", !this.micOn);
     btn.innerHTML = ico(this.micOn ? "mic" : "micOff");
-    this.setStatus(this.micOn ? fmtTime((Date.now() - this.startedAt) / 1000) : "Microphone muted");
+    this.setStatus(this.micOn ? fmtTime((Date.now() - this.startedAt) / 1000) : t("Microphone muted"));
   }
 
   private toggleCam(btn: HTMLElement): void {
     this.camOn = !this.camOn;
-    this.stream?.getVideoTracks().forEach((t) => (t.enabled = this.camOn));
+    this.stream?.getVideoTracks().forEach((tr) => (tr.enabled = this.camOn));
     btn.classList.toggle("off", !this.camOn);
     btn.innerHTML = ico(this.camOn ? "video" : "videoOff");
     if (this.videoEl) this.videoEl.hidden = !this.camOn || this.kind !== "video";
   }
 
-  private setStatus(t: string): void { if (this.statusEl) this.statusEl.textContent = t; }
+  private setStatus(txt: string): void { if (this.statusEl) this.statusEl.textContent = txt; }
   private setCaption(who: "me" | "ai", text: string, interim = false): void {
     if (!this.captionEl) return;
     this.captionEl.classList.add("show");
     this.captionEl.classList.toggle("interim", interim);
-    this.captionEl.querySelector(".cap-who")!.textContent = who === "me" ? "You" : "AI";
+    this.captionEl.querySelector(".cap-who")!.textContent = t(who === "me" ? "You" : "Assistant");
     this.captionEl.querySelector(".cap-text")!.textContent = text;
   }
 
@@ -354,7 +355,7 @@ export class CallManager {
     clearInterval(this.timerInt);
     try { this.rec?.stop(); } catch { /* noop */ }
     this.stopSpeaking();
-    this.stream?.getTracks().forEach((t) => t.stop());
+    this.stream?.getTracks().forEach((tr) => tr.stop());
     this.stream = null;
     try { this.ac?.close(); } catch { /* noop */ }
     if (this.overlay) {

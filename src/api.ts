@@ -1,6 +1,7 @@
 export type ProviderId =
   | "local" | "gemini" | "deepseek" | "groq" | "openrouter"
-  | "mistral" | "anthropic" | "openai" | "ollama";
+  | "mistral" | "anthropic" | "openai" | "ollama"
+  | "xai" | "cerebras" | "sambanova";
 
 export interface ModelInfo {
   id: string;
@@ -67,6 +68,9 @@ export const STATIC_MODELS: ModelInfo[] = [
   { id: "claude-haiku-4-5", name: "Claude Haiku 4.5", provider: "anthropic", tag: "fast", vision: true },
   { id: "gpt-4.1-mini", name: "GPT-4.1 mini", provider: "openai", tag: "all-round", vision: true },
   { id: "qwen3-coder:30b", name: "Qwen3 Coder 30B (Ollama)", provider: "ollama", tag: "local" },
+  { id: "grok-4-fast-non-reasoning", name: "Grok 4 Fast", provider: "xai", tag: "fast · vision", vision: true },
+  { id: "llama-3.3-70b", name: "Llama 3.3 70B (Cerebras)", provider: "cerebras", tag: "instant", free: true },
+  { id: "Meta-Llama-3.3-70B-Instruct", name: "Llama 3.3 70B (SambaNova)", provider: "sambanova", tag: "instant", free: true },
 ];
 
 export const PROVIDERS: { id: ProviderId; name: string; keyEnv: string; keyUrl: string }[] = [
@@ -77,6 +81,9 @@ export const PROVIDERS: { id: ProviderId; name: string; keyEnv: string; keyUrl: 
   { id: "mistral", name: "Mistral", keyEnv: "MISTRAL_API_KEY", keyUrl: "https://console.mistral.ai/api-keys" },
   { id: "anthropic", name: "Anthropic", keyEnv: "ANTHROPIC_API_KEY", keyUrl: "https://console.anthropic.com/settings/keys" },
   { id: "openai", name: "OpenAI", keyEnv: "OPENAI_API_KEY", keyUrl: "https://platform.openai.com/api-keys" },
+  { id: "xai", name: "xAI (Grok)", keyEnv: "XAI_API_KEY", keyUrl: "https://console.x.ai/" },
+  { id: "cerebras", name: "Cerebras", keyEnv: "CEREBRAS_API_KEY", keyUrl: "https://cloud.cerebras.ai/" },
+  { id: "sambanova", name: "SambaNova", keyEnv: "SAMBANOVA_API_KEY", keyUrl: "https://cloud.sambanova.ai/" },
   { id: "ollama", name: "Ollama (local)", keyEnv: "OLLAMA_URL", keyUrl: "https://ollama.com" },
 ];
 
@@ -86,13 +93,17 @@ const OAI_BASE: Record<string, string> = {
   groq: "https://api.groq.com/openai/v1",
   openrouter: "https://openrouter.ai/api/v1",
   mistral: "https://api.mistral.ai/v1",
+  xai: "https://api.x.ai/v1",
+  cerebras: "https://api.cerebras.ai/v1",
+  sambanova: "https://api.sambanova.ai/v1",
   ollama: "http://localhost:11434/v1",
 };
 
-const KEY_ENV: Record<string, string> = {
+export const KEY_ENV: Record<string, string> = {
   openai: "OPENAI_API_KEY", deepseek: "DEEPSEEK_API_KEY", groq: "GROQ_API_KEY",
   openrouter: "OPENROUTER_API_KEY", mistral: "MISTRAL_API_KEY",
   anthropic: "ANTHROPIC_API_KEY", gemini: "GOOGLE_API_KEY", ollama: "OLLAMA_URL",
+  xai: "XAI_API_KEY", cerebras: "CEREBRAS_API_KEY", sambanova: "SAMBANOVA_API_KEY",
 };
 
 export interface WebSource { title: string; url: string; snippet: string }
