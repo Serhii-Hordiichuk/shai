@@ -2,14 +2,16 @@ import { ico } from "./icons";
 import type { Store } from "./store";
 import type { IDB } from "./db";
 import type { Router } from "./router";
-import { EdgeClient, webSearch, providerName, STATIC_MODELS } from "./api";
-import type { ModelInfo, ChatMsg, StreamEvent, WebSource, ProviderId } from "./api";
+import { EdgeClient, webSearch, providerName, STATIC_MODELS, KEY_ENV } from "./api";
+import type { ModelInfo, ChatMsg, StreamEvent, WebSource } from "./api";
 import { renderMarkdown, extractArtifacts, escapeHtml } from "./render";
 import type { Artifact } from "./render";
 import { localChat, thinkSteps, sourcesContext } from "./engine";
 import { el, toast, openPopover } from "./ui";
 import { dictate } from "./call";
 import type { CallLine } from "./call";
+import { t, applyI18n, getLang } from "./i18n";
+import type { Lang } from "./i18n";
 
 export interface Msg {
   id: string;
@@ -31,6 +33,7 @@ export interface ChatDoc {
   msgs: Msg[];
 }
 export interface Settings {
+  lang: Lang;
   edgeUrl: string;
   keys: Record<string, string>;
   sttLang: string;
@@ -46,6 +49,7 @@ export interface Settings {
   volume: number;
 }
 export const DEFAULT_SETTINGS: Settings = {
+  lang: "en",
   edgeUrl: "",
   keys: {},
   sttLang: "en-US",
@@ -71,11 +75,13 @@ export interface AppState {
   deepThink: boolean;
   artOpen: boolean;
   sidebarOpen: boolean;
+  sideCollapsed: boolean;
   view: string;
 }
 export const uid = (): string => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+const fmtTime = (ts: number) =>
+  new Date(ts).toLocaleTimeString(getLang() === "uk" ? "uk-UA" : "en-US", { hour: "2-digit", minute: "2-digit" });
 
 export interface ChatCtx {
   store: Store<AppState>;
@@ -88,10 +94,10 @@ export interface ChatCtx {
 }
 
 const SUGGESTIONS = [
-  { icon: "code", text: "Explain how SSE streaming works, with a code example" },
+  { icon: "code", text: "Explain how SSE streaming works with a code example" },
   { icon: "wand", text: "Build an HTML page with a Pomodoro timer" },
-  { icon: "spark", text: "Walk me through this app's architecture" },
-  { icon: "brain", text: "Compute (128 + 47) * 3 and explain the order of operations" },
+  { icon: "spark", text: "Walk me through the architecture of this app" },
+  { icon: "brain", text: "Calculate (128 + 47) * 3 and explain the order of operations" },
 ];
 
 function ping(ctx: ChatCtx, kind: "send" | "recv"): void {
@@ -135,34 +141,34 @@ export class ChatEngine {
   private build(): void {
     this.host.innerHTML = `
       <div class="chat-top">
-        <button class="icon-btn sidebar-burger" title="Menu">${ico("menu")}</button>
-        <button class="model-btn" title="Choose model"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
+        <button class="icon-btn sidebar-burger" data-i18n-title="Menu" title="Menu">${ico("menu")}</button>
+        <button class="model-btn" data-i18n-title="Choose model" title="Choose model"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
         <div class="top-toggles">
-          <button class="pill-toggle" data-flag="webSearch" title="Look up sources on the web before answering">${ico("globe")}<span>Web search</span></button>
-          <button class="pill-toggle" data-flag="deepThink" title="Show the model's chain of thought">${ico("brain")}<span>Deep thinking</span></button>
+          <button class="pill-toggle" data-flag="webSearch" data-i18n-title="Search the web for sources before answering" title="Search the web for sources before answering">${ico("globe")}<span data-i18n="Web search">Web search</span></button>
+          <button class="pill-toggle" data-flag="deepThink" data-i18n-title="Show the model's chain of thought" title="Show the model's chain of thought">${ico("brain")}<span data-i18n="Deep thinking">Deep thinking</span></button>
         </div>
         <div class="top-actions">
-          <button class="icon-btn call-direct" data-act="call-audio" title="Voice call">${ico("phone")}</button>
-          <button class="icon-btn call-direct" data-act="call-video" title="Video call">${ico("video")}</button>
-          <button class="icon-btn call-more" data-act="call-menu" title="Call">${ico("phone")}</button>
+          <button class="icon-btn call-direct" data-act="call-audio" data-i18n-title="Voice call" title="Voice call">${ico("phone")}</button>
+          <button class="icon-btn call-direct" data-act="call-video" data-i18n-title="Video call" title="Video call">${ico("video")}</button>
+          <button class="icon-btn call-more" data-act="call-menu" data-i18n-title="Call" title="Call">${ico("phone")}</button>
         </div>
       </div>
       <div class="msg-scroll"><div class="msg-list"></div>
-        <button class="jump-btn" title="Scroll to bottom">${ico("arrowDown")}<span class="jump-count" hidden>0</span></button>
+        <button class="jump-btn" data-i18n-title="Scroll to bottom" title="Scroll to bottom">${ico("arrowDown")}<span class="jump-count" hidden>0</span></button>
       </div>
       <div class="composer">
         <div class="comp-chips" hidden></div>
         <div class="comp-box">
-          <textarea class="comp-ta" rows="1" placeholder="Message…" title="Enter — send, Shift+Enter — new line"></textarea>
+          <textarea class="comp-ta" rows="1" data-i18n-ph="Message…" placeholder="Message…" title="Enter to send, Shift+Enter for a new line"></textarea>
           <div class="comp-btns">
-            <button class="icon-btn" data-act="attach" title="Attach images">${ico("image")}</button>
-            <button class="icon-btn mic-btn" data-act="dictate" title="Voice input">${ico("mic")}</button>
-            <button class="send-btn" data-act="send" title="Send">${ico("send")}</button>
+            <button class="icon-btn" data-act="attach" data-i18n-title="Attach image" title="Attach image">${ico("image")}</button>
+            <button class="icon-btn mic-btn" data-act="dictate" data-i18n-title="Voice input" title="Voice input">${ico("mic")}</button>
+            <button class="send-btn" data-act="send" data-i18n-title="Send" title="Send">${ico("send")}</button>
           </div>
         </div>
-        <div class="comp-hint"><span class="hint-model"></span><span>AI can make mistakes — double-check important info</span></div>
+        <div class="comp-hint"><span class="hint-model"></span><span data-i18n="AI may be wrong — double-check important info">AI may be wrong — double-check important info</span></div>
       </div>
-      <div class="drop-veil" hidden><div class="drop-card">${ico("image")}<b>Drop to attach images</b></div></div>
+      <div class="drop-veil" hidden><div class="drop-card">${ico("image")}<b data-i18n="Drop images to attach">Drop images to attach</b></div></div>
       <input type="file" accept="image/*" multiple hidden />`;
     this.topbar = this.host.querySelector(".chat-top")!;
     this.listEl = this.host.querySelector(".msg-list")!;
@@ -178,7 +184,8 @@ export class ChatEngine {
     const { store } = this.ctx;
 
     this.topbar.querySelector(".sidebar-burger")!.addEventListener("click", () => {
-      store.state.sidebarOpen = !store.state.sidebarOpen;
+      if (innerWidth <= 920) store.state.sidebarOpen = !store.state.sidebarOpen;
+      else store.state.sideCollapsed = !store.state.sideCollapsed;
     });
     this.modelBtn.addEventListener("click", () => this.openModelMenu());
     this.topbar.querySelectorAll(".pill-toggle").forEach((b) =>
@@ -192,8 +199,8 @@ export class ChatEngine {
     this.topbar.querySelector('[data-act="call-menu"]')!.addEventListener("click", (e) => {
       const menu = el("div", "dd-callmenu");
       menu.innerHTML = `
-        <button class="dd-item" data-kind="audio">${ico("phone")}<span class="dd-name">Voice call</span></button>
-        <button class="dd-item" data-kind="video">${ico("video")}<span class="dd-name">Video call</span></button>`;
+        <button class="dd-item" data-kind="audio">${ico("phone")}<span class="dd-name">${t("Voice call")}</span></button>
+        <button class="dd-item" data-kind="video">${ico("video")}<span class="dd-name">${t("Video call")}</span></button>`;
       const close = openPopover(e.currentTarget as HTMLElement, menu, { align: "right", width: 224 });
       menu.addEventListener("click", (ev) => {
         const item = (ev.target as HTMLElement).closest(".dd-item") as HTMLElement | null;
@@ -247,14 +254,14 @@ export class ChatEngine {
     });
 
     this.listEl.addEventListener("click", (e) => {
-      const t = e.target as HTMLElement;
-      const actBtn = t.closest("[data-mact]") as HTMLElement | null;
+      const tg = e.target as HTMLElement;
+      const actBtn = tg.closest("[data-mact]") as HTMLElement | null;
       if (actBtn) {
         const id = actBtn.closest(".msg")?.getAttribute("data-id") ?? "";
         this.msgAction(actBtn.getAttribute("data-mact")!, id);
         return;
       }
-      const thumb = t.closest(".thumb") as HTMLElement | null;
+      const thumb = tg.closest(".thumb") as HTMLElement | null;
       if (thumb) {
         const img = el("div", "lightbox");
         img.innerHTML = `<img src="${thumb.getAttribute("data-src")}" alt=""/>`;
@@ -262,23 +269,23 @@ export class ChatEngine {
         document.body.appendChild(img);
         return;
       }
-      const think = t.closest(".think-head") as HTMLElement | null;
+      const think = tg.closest(".think-head") as HTMLElement | null;
       if (think) {
         think.closest(".think-card")?.classList.toggle("open");
         return;
       }
-      const sugg = t.closest(".sugg-card") as HTMLElement | null;
+      const sugg = tg.closest(".sugg-card") as HTMLElement | null;
       if (sugg) { void this.send(sugg.getAttribute("data-text") ?? "", []); }
-      const chip = t.closest(".cb-copy") as HTMLElement | null;
+      const chip = tg.closest(".cb-copy") as HTMLElement | null;
       if (chip) {
         const block = chip.closest(".codeblock")?.querySelector("pre code")?.textContent ?? "";
         void this.copyText(block);
         chip.classList.add("ok");
-        chip.textContent = "copied";
-        setTimeout(() => { chip.classList.remove("ok"); chip.textContent = "copy"; }, 1500);
+        chip.textContent = t("copied");
+        setTimeout(() => { chip.classList.remove("ok"); chip.textContent = t("copy"); }, 1500);
         return;
       }
-      const openArt = t.closest(".cb-open") as HTMLElement | null;
+      const openArt = tg.closest(".cb-open") as HTMLElement | null;
       if (openArt) {
         this.ctx.store.state.artOpen = true;
         this.ctx.refreshArtifacts();
@@ -299,11 +306,17 @@ export class ChatEngine {
     this.syncToggles();
   }
 
+  applyLang(): void {
+    applyI18n(this.host);
+    this.syncModelBtn();
+    this.renderChat();
+  }
+
   private openModelMenu(): void {
     const { store, client } = this.ctx;
     const wrap = el("div", "dd-models");
     const q = el<HTMLInputElement>("input", "dd-search");
-    q.placeholder = "Search models…";
+    q.placeholder = t("Search models…");
     const body = el("div", "dd-body");
     wrap.append(q, body);
     const render = () => {
@@ -316,16 +329,16 @@ export class ChatEngine {
         groups.get(key)!.push(m);
       }
       body.innerHTML = "";
-      if (!groups.size) body.innerHTML = `<div class="dd-empty">Nothing found</div>`;
+      if (!groups.size) body.innerHTML = `<div class="dd-empty">${t("Nothing found")}</div>`;
       for (const [name, list] of groups) {
         body.insertAdjacentHTML("beforeend", `<div class="dd-group">${escapeHtml(name)}</div>`);
         for (const m of list) {
           const active = m.id === store.state.modelId ? " active" : "";
-          const locked = m.provider !== "local" && !store.state.settings.keys[KEY_FOR(m.provider)] && !store.state.settings.edgeUrl ? " locked" : "";
+          const locked = m.provider !== "local" && !store.state.settings.keys[KEY_ENV[m.provider]] && !store.state.settings.edgeUrl ? " locked" : "";
           body.insertAdjacentHTML("beforeend", `
             <button class="dd-item${active}${locked}" data-model="${escapeHtml(m.id)}">
-              <span class="dd-name">${escapeHtml(m.name)}${locked ? `<span class="dd-lock" title="Requires an API key or the Edge worker">${ico("key")}</span>` : ""}</span>
-              ${m.tag ? `<span class="dd-tag">${escapeHtml(m.tag)}</span>` : ""}
+              <span class="dd-name">${escapeHtml(m.name)}${locked ? `<span class="dd-lock" title="${t("API key or Edge worker required")}">${ico("key")}</span>` : ""}</span>
+              ${m.tag ? `<span class="dd-tag">${escapeHtml(t(m.tag))}</span>` : ""}
               ${active ? `<span class="dd-check">${ico("check")}</span>` : ""}
             </button>`);
         }
@@ -339,11 +352,11 @@ export class ChatEngine {
       store.state.modelId = id;
       void this.ctx.db.set("misc", "modelId", id);
       this.syncModelBtn();
-      toast(`Model: ${store.state.models.find((m) => m.id === id)?.name ?? id}`, "ok");
+      toast(`${t("Model:")} ${store.state.models.find((m) => m.id === id)?.name ?? id}`, "ok");
       closeNow();
     });
     const foot = el("div", "dd-foot");
-    foot.innerHTML = `<button class="btn btn-ghost btn-sm">${ico("refresh")} Refresh list</button><a class="btn btn-ghost btn-sm" href="#/settings">${ico("gear")} Settings</a>`;
+    foot.innerHTML = `<button class="btn btn-ghost btn-sm">${ico("refresh")} ${t("Refresh list")}</button><a class="btn btn-ghost btn-sm" href="#/settings">${ico("gear")} ${t("Settings")}</a>`;
     wrap.appendChild(foot);
     foot.querySelector("button")!.addEventListener("click", async () => {
       (foot.querySelector("button") as HTMLButtonElement).disabled = true;
@@ -352,9 +365,9 @@ export class ChatEngine {
         store.state.models = models;
         void this.ctx.db.set("models", "list", { ts: Date.now(), models });
         render();
-        toast(`Models found: ${models.length}`, "ok");
+        toast(`${t("Models found:")} ${models.length}`, "ok");
       } catch {
-        toast("Failed to refresh models", "err");
+        toast(t("Couldn't refresh models"), "err");
       } finally {
         (foot.querySelector("button") as HTMLButtonElement).disabled = false;
       }
@@ -427,7 +440,7 @@ export class ChatEngine {
       }
     );
     if (!stop) {
-      toast("Web Speech API is not available in this browser", "err");
+      toast(t("Web Speech API isn't available in this browser"), "err");
       return;
     }
     this.dictStop = stop;
@@ -460,10 +473,10 @@ export class ChatEngine {
     const wrap = el("div", "empty-state");
     wrap.innerHTML = `
       <div class="greet-mark">${ico("logo")}</div>
-      <h2 class="greet-title">How can I help?</h2>
-      <p class="greet-sub">Pick a model, toggle web search or deep thinking — or start from a suggestion</p>
+      <h2 class="greet-title">${t("How can I help?")}</h2>
+      <p class="greet-sub">${t("Pick a model, turn on web search or deep thinking — or start with a suggestion")}</p>
       <div class="sugg-grid">${SUGGESTIONS.map((s) => `
-        <button class="sugg-card" data-text="${escapeHtml(s.text)}">${ico(s.icon)}<span>${escapeHtml(s.text)}</span></button>`).join("")}
+        <button class="sugg-card" data-text="${escapeHtml(t(s.text))}">${ico(s.icon)}<span>${escapeHtml(t(s.text))}</span></button>`).join("")}
       </div>`;
     return wrap;
   }
@@ -482,26 +495,27 @@ export class ChatEngine {
         </div>`;
       return row;
     }
-    const src = m.sources?.length
-      ? `<div class="src-row"><span class="src-note">${ico("globe")} ${m.sources.length} source${m.sources.length === 1 ? "" : "s"}</span>${m.sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")}</div>`
+    const nSrc = m.sources?.length ?? 0;
+    const src = nSrc
+      ? `<div class="src-row"><span class="src-note">${ico("globe")} ${nSrc} ${t(nSrc === 1 ? "source" : "sources")}</span>${m.sources!.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")}</div>`
       : "";
     const think = m.thinking
-      ? `<div class="think-card"><div class="think-head">${ico("brain")}<span>Chain of thought</span>${ico("chevronDown")}</div><div class="think-body">${escapeHtml(m.thinking).replace(/\n/g, "<br>")}</div></div>`
+      ? `<div class="think-card"><div class="think-head">${ico("brain")}<span>${t("Chain of thought")}</span>${ico("chevronDown")}</div><div class="think-body">${escapeHtml(m.thinking).replace(/\n/g, "<br>")}</div></div>`
       : "";
     const content = m.content ? renderMarkdown(m.content) : "";
-    const errHtml = m.err ? `<div class="msg-err">${ico("alert")}<span>${escapeHtml(m.err)}</span><button class="btn btn-sm btn-ghost" data-mact="retry">Retry</button></div>` : "";
+    const errHtml = m.err ? `<div class="msg-err">${ico("alert")}<span>${escapeHtml(m.err)}</span><button class="btn btn-sm btn-ghost" data-mact="retry">${t("Retry")}</button></div>` : "";
     const meta = m.model ? `<span class="meta-model">${escapeHtml(m.model)}</span>` : "";
     row.innerHTML = `
-      <div class="msg-avatar" title="Assistant">${ico("spark")}</div>
+      <div class="msg-avatar" title="${t("Assistant")}">${ico("spark")}</div>
       <div class="msg-body">
         ${src}${think}
         <div class="msg-content">${content}</div>
         ${errHtml}
         <div class="msg-meta">${meta}${this.ctx.store.state.settings.showTime ? `<span>${fmtTime(m.ts)}</span>` : ""}</div>
         ${m.content && !m.err ? `<div class="msg-actions">
-          <button class="ma-btn" data-mact="copy" title="Copy">${ico("copy")}</button>
-          <button class="ma-btn" data-mact="tts" title="Read aloud">${ico("volume")}</button>
-          <button class="ma-btn" data-mact="regen" title="Regenerate">${ico("refresh")}</button>
+          <button class="ma-btn" data-mact="copy" title="${t("Copy")}">${ico("copy")}</button>
+          <button class="ma-btn" data-mact="tts" title="${t("Read aloud")}">${ico("volume")}</button>
+          <button class="ma-btn" data-mact="regen" title="${t("Regenerate")}">${ico("refresh")}</button>
         </div>` : ""}
       </div>`;
     return row;
@@ -520,9 +534,9 @@ export class ChatEngine {
   private async copyText(text: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
-      toast("Copied to clipboard", "ok");
+      toast(t("Copied to clipboard"), "ok");
     } catch {
-      toast("Failed to copy", "err");
+      toast(t("Couldn't copy"), "err");
     }
   }
 
@@ -532,9 +546,9 @@ export class ChatEngine {
     if (!synth) return;
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]/g, "").slice(0, 800));
-    u.lang = "en-US";
+    u.lang = getLang() === "uk" ? "uk-UA" : "en-US";
     u.rate = s.ttsRate;
-    const v = synth.getVoices().find((x) => x.name === s.ttsVoice) ?? synth.getVoices().find((x) => x.lang.startsWith("en"));
+    const v = synth.getVoices().find((x) => x.name === s.ttsVoice) ?? synth.getVoices().find((x) => x.lang.startsWith(getLang() === "uk" ? "uk" : "en"));
     if (v) u.voice = v;
     synth.speak(u);
   }
@@ -542,7 +556,7 @@ export class ChatEngine {
   private submit(): void {
     const text = this.ta.value.trim();
     if (!text && !this.pending.length) return;
-    void this.send(text || "Describe these images", this.pending);
+    void this.send(text || t("Describe these images"), this.pending);
     this.pending = [];
     this.renderChips();
     this.ta.value = "";
@@ -584,7 +598,7 @@ export class ChatEngine {
       <div class="msg-body">
         <div class="src-row" hidden></div>
         <div class="think-card${deep ? " active open" : ""}" ${deep ? "" : "hidden"}>
-          <div class="think-head">${ico("brain")}<span>Chain of thought</span><span class="think-dots"><i></i><i></i><i></i></span>${ico("chevronDown")}</div>
+          <div class="think-head">${ico("brain")}<span>${t("Chain of thought")}</span><span class="think-dots"><i></i><i></i><i></i></span>${ico("chevronDown")}</div>
           <div class="think-body"></div>
         </div>
         <div class="msg-content"><span class="stream-caret"></span></div>
@@ -599,13 +613,14 @@ export class ChatEngine {
 
     if (wantWeb) {
       srcRow.hidden = false;
-      srcRow.innerHTML = `<span class="src-note src-busy">${ico("globe")} Searching the web…</span>`;
+      srcRow.innerHTML = `<span class="src-note src-busy">${ico("globe")} ${t("Searching the web…")}</span>`;
       try {
         sources = await webSearch(text);
       } catch { sources = []; }
-      srcRow.innerHTML = sources.length
-        ? `<span class="src-note">${ico("globe")} ${sources.length} sources</span>` + sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")
-        : `<span class="src-note">${ico("globe")} Nothing found — answering without context</span>`;
+      const n = sources.length;
+      srcRow.innerHTML = n
+        ? `<span class="src-note">${ico("globe")} ${n} ${t(n === 1 ? "source" : "sources")}</span>` + sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")
+        : `<span class="src-note">${ico("globe")} ${t("Nothing found — answering without context")}</span>`;
       webContext = sourcesContext(sources);
       this.scrollBottom(true);
     }
@@ -615,7 +630,7 @@ export class ChatEngine {
     const sig = this.controller.signal;
     this.sendBtn.classList.add("busy");
     this.sendBtn.innerHTML = ico("stop");
-    this.sendBtn.title = "Stop";
+    this.sendBtn.title = t("Stop");
 
     let raw = "";
     let thinkRaw = "";
@@ -653,15 +668,15 @@ export class ChatEngine {
       paint(true);
     } catch (e: any) {
       if (sig.aborted || e?.name === "AbortError") {
-        if (raw) raw += "\n\n*— stopped by user*";
+        if (raw) raw += `\n\n*${t("— stopped by user")}*`;
       } else {
-        aiMsg.err = e?.message || "Unknown error";
+        aiMsg.err = e?.message || t("Unknown error");
       }
     } finally {
       this.controller = null;
       this.sendBtn.classList.remove("busy");
       this.sendBtn.innerHTML = ico("send");
-      this.sendBtn.title = "Send";
+      this.sendBtn.title = t("Send");
     }
 
     aiMsg.content = raw;
@@ -679,13 +694,13 @@ export class ChatEngine {
       ping(this.ctx, "recv");
       if (aiMsg.arts?.length) {
         this.ctx.refreshArtifacts();
-        toast(`Artifacts added: ${aiMsg.arts.length}`, "ok");
+        toast(`${t("Artifacts added:")} ${aiMsg.arts.length}`, "ok");
       }
     }
   }
 
   private history(chat: ChatDoc): ChatMsg[] {
-    const sys: ChatMsg[] = [{ role: "system", content: "You are a helpful AI Studio assistant. Answer in English, be concise and to the point. Format replies in Markdown, put code in fenced blocks with a language tag." }];
+    const sys: ChatMsg[] = [{ role: "system", content: "You are a helpful AI Studio assistant. Answer in English, concise and to the point. Format replies in Markdown, code in fenced blocks with the language tag." }];
     const hist: ChatMsg[] = chat.msgs
       .filter((m) => !m.err && m.content)
       .slice(-16)
@@ -741,15 +756,15 @@ export class ChatEngine {
     if (!chat) return;
     const mm = Math.floor(sec / 60).toString().padStart(2, "0");
     const ss = Math.floor(sec % 60).toString().padStart(2, "0");
-    const body = lines.map((l) => `- **${l.who === "me" ? "You" : "AI"}**: ${l.text}`).join("\n");
+    const body = lines.map((l) => `- **${t(l.who === "me" ? "You" : "Assistant")}**: ${l.text}`).join("\n");
     chat.msgs.push({
       id: uid(), role: "assistant", ts: Date.now(),
-      content: `**${kind === "video" ? "Video call" : "Voice call"} ended** · duration ${mm}:${ss}\n\n**Transcript:**\n${body}`,
+      content: `**${t(kind === "video" ? "Video call ended" : "Voice call ended")}** · ${t("duration")} ${mm}:${ss}\n\n**${t("Transcript")}:**\n${body}`,
     });
     chat.updatedAt = Date.now();
     this.ctx.persist();
     if (this.ctx.store.state.activeId === chat.id) this.renderChat();
-    toast("Call transcript added to the chat", "ok");
+    toast(t("Call transcript added to the chat"), "ok");
   }
 
   private nearBottom(): boolean {
@@ -758,15 +773,6 @@ export class ChatEngine {
   private scrollBottom(smooth: boolean): void {
     this.scroller.scrollTo({ top: this.scroller.scrollHeight, behavior: smooth ? "smooth" : "auto" });
   }
-}
-
-function KEY_FOR(p: ProviderId): string {
-  const map: Record<string, string> = {
-    openai: "OPENAI_API_KEY", deepseek: "DEEPSEEK_API_KEY", groq: "GROQ_API_KEY",
-    openrouter: "OPENROUTER_API_KEY", mistral: "MISTRAL_API_KEY",
-    anthropic: "ANTHROPIC_API_KEY", gemini: "GOOGLE_API_KEY", ollama: "OLLAMA_URL",
-  };
-  return map[p] ?? "";
 }
 
 function fileToDataUrl(file: File): Promise<string | null> {

@@ -12,16 +12,19 @@ import { CallManager } from "./call";
 import type { CallLine } from "./call";
 import { renderMarkdown, escapeHtml } from "./render";
 import type { Artifact } from "./render";
+import { t, setLang, getLang, applyI18n } from "./i18n";
+import type { Lang } from "./i18n";
 
 const F = "```";
+const VERSION = "v3.3";
 
-const DOC_MD = `# Technical Specification: "Studio" AI Chat Interface
+const DOC_MD = `# Technical Spec: AI Studio chat interface
 
-Visual language — a Qwen-style studio: three columns, calm focus on content. Calls follow the Telegram pattern: full-screen call, waves, timer, barge-in.
+Visual language — a Qwen-style studio: three columns, calm focus on content. Calls follow Telegram: full-screen call, waveform, timer, barge-in.
 
 ## 1. Hard constraints
 
-- **Frontend:** pure HTML5 + CSS3 + Vanilla JS (ES Modules). No React/Vue/Angular in app logic. Dropdowns, modals, sliders, toasts are custom classes.
+- **Frontend:** pure HTML5 + CSS3 + Vanilla JS (ES Modules). No React/Vue/Angular in app logic. Dropdowns, modals, sliders, toasts — custom classes.
 - **Backend:** TypeScript on Edge (Cloudflare Workers) only. No Node.js/Express.
 - **Client data:** IndexedDB through a custom wrapper (module \`db.ts\`).
 
@@ -40,24 +43,25 @@ src/
 ├─ call.ts        # class CallManager: calls, barge-in, avatar
 ├─ render.ts      # Markdown + highlight.js + code blocks
 ├─ ui.ts          # modals, dropdowns, toasts, switches, sliders
-├─ icons.ts       # every icon is a custom SVG
-└─ index.css      # light/dark themes on CSS variables
+├─ i18n.ts        # EN/UK translations
+├─ icons.ts       # every icon is custom SVG
+└─ index.css      # light/dark themes via CSS variables
 
 edge/             # Cloudflare Worker (TypeScript)
 ├─ src/index.ts   # routes + model aggregation + KV cache
 ├─ src/router.ts  # class EdgeRouter
 ├─ src/providers.ts # vendor adapters (OpenAI/Anthropic/Google/…)
-├─ wrangler.toml  # KV binding, compatibility_date
+├─ wrangler.toml  # KV bindings, compatibility_date
 └─ tsconfig.json
 ${F}
 
 ## 3. Key classes
 
-### \`class Store\` — Proxy-based state
+### \`class Store\` — Proxy state
 ${F}ts
 const store = new Store<AppState>({ chats: [], settings, … });
-store.on(path => render(path));            // Observer
-store.state.modelId = "gemini-2.5-flash";  // → emit('modelId')
+store.on(path => render(path));           // Observer
+store.state.modelId = "gemini-2.5-flash"; // → emit('modelId')
 store.setDeep('settings', s => ({ ...s, theme: 'dark' }));
 ${F}
 
@@ -70,7 +74,7 @@ r.post('/api/chat', handleChat);      // streaming proxy
 export default { fetch: (req, env, ctx) => r.handle(req, env, ctx) };
 ${F}
 
-### \`class ChatEngine\` — streaming and artifacts
+### \`class ChatEngine\` — streaming & artifacts
 ${F}ts
 const gen = client.chat(model, messages, { keys, signal, deep, webContext });
 for await (const ev of gen) {
@@ -83,21 +87,21 @@ ${F}
 ### \`class CallManager\` — Telegram-style calls
 ${F}
 Mic → Web Speech (STT) → Edge API → TTS
-      ↘ Web Audio: AnalyserNode → waves + barge-in
+     ↘ Web Audio: AnalyserNode → waveform + barge-in
 Video: <video> (local) + Canvas AI avatar (TTS lip-sync)
 ${F}
 
-## 4. Edge function map
+## 4. Edge functions
 
-| Endpoint | Method | Behavior |
+| Endpoint | Method | Action |
 |---|---|---|
-| \`/api/health\` | GET | worker liveness probe |
-| \`/api/models\` | GET | aggregates \`/v1/models\` of every provider (OpenAI, Anthropic, Google, Mistral, Groq, Ollama), caches in KV for 1 hour, returns a single JSON |
-| \`/api/chat\` | POST | accepts \`{provider, model, messages, stream, deep}\`, injects keys from ENV, routes to the vendor, normalizes SSE (\`delta\` / \`thinking\`) |
+| \`/api/health\` | GET | worker liveness check |
+| \`/api/models\` | GET | aggregates \`/v1/models\` of all providers (OpenAI, Anthropic, Google, Mistral, Groq, Ollama), caches in KV for 1 h, returns a single JSON |
+| \`/api/chat\` | POST | takes \`{provider, model, messages, stream, deep}\`, injects keys from ENV, routes to the vendor, normalizes SSE (\`delta\` / \`thinking\`) |
 
-Keys live **only in the worker's ENV** — the client never sees them. Without a worker the app automatically falls back to "direct mode": keys from IndexedDB, vendor calls from the browser, or the offline engine.
+Keys live **only in the worker ENV** — the client never sees them. Without a worker the app automatically switches to "direct mode": keys from IndexedDB, vendor calls from the browser, or the offline engine.
 
-## 5. Data storage
+## 5. Persistence
 
 - **IndexedDB** (wrapper \`db.ts\`): conversations, settings, model cache, selected model.
 - **Edge KV**: aggregated model list (TTL 3600 s).
@@ -105,13 +109,13 @@ Keys live **only in the worker's ENV** — the client never sees them. Without a
 
 ## 6. What works in this build
 
-- Three columns: history + settings / chat / artifacts with live HTML preview in a sandboxed iframe
-- Custom model dropdown with search and provider grouping
-- "Web search" (real Wikipedia API lookups + sources under the reply) and "Deep thinking" (chain of thought: local steps or DeepSeek R1 \`reasoning_content\` / Gemini thinking) toggles
-- Hand-rolled SSE parser, character-level streaming, Stop button
-- Calls: voice and video, Web Audio waves, captions, barge-in, transcript in chat
-- Composer voice input, images (file / paste / drag-and-drop), lightbox
-- Light/dark themes on CSS variables, custom scrollbars, fully responsive
+- Three columns: history + settings / chat / artifacts with live HTML preview in a sandbox-iframe
+- Custom model dropdown with search and provider grouping (11 providers)
+- "Web search" (real Wikipedia API + sources under the reply) and "Deep thinking" toggles (chain of thought: local steps or \`reasoning_content\` DeepSeek R1 / Gemini thinking)
+- Hand-rolled SSE parser, token streaming, Stop button
+- Calls: voice and video, Web Audio waveform, captions, barge-in, transcript to chat
+- Voice input in the composer, images (file / paste / drag-and-drop), lightbox
+- EN/UK interface language, light/dark themes via CSS variables, custom scrollbars, full responsive (380px → 4K), collapsible sidebar
 `;
 
 export async function createStudio(root: HTMLElement): Promise<() => void> {
@@ -124,6 +128,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   const savedModels = (await db.get<{ ts: number; models: ModelInfo[] }>("models", "list")) ?? null;
 
   const settings: Settings = { ...DEFAULT_SETTINGS, ...(savedSettings ?? {}) };
+  setLang(settings.lang);
   let chats = savedChats;
   if (!chats.length) chats = [makeChat()];
 
@@ -145,12 +150,15 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     deepThink: false,
     artOpen: false,
     sidebarOpen: false,
+    sideCollapsed: false,
     view: "chat",
   });
   if (!store.state.models.some((m) => m.id === store.state.modelId)) store.state.modelId = "studio-local";
 
   const client = new EdgeClient(() => store.state.settings.edgeUrl);
   const persist = () => void db.set("chats", "all", store.state.chats);
+  const s = () => store.state.settings;
+  const set = (patch: Partial<Settings>) => store.setDeep("settings", (prev) => ({ ...prev, ...patch }));
 
   root.innerHTML = `
     <div class="app-shell">
@@ -161,17 +169,18 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
             <span class="brand-mark">${ico("logo")}</span>
             <span class="brand-text">Studio<b>AI chat studio</b></span>
           </a>
-          <button class="btn btn-primary btn-new">${ico("plus")} New chat</button>
-          <div class="side-search">${ico("search")}<input placeholder="Search chats…" /></div>
+          <button class="icon-btn side-collapse" data-i18n-title="Collapse sidebar" title="Collapse sidebar">${ico("chevronRight")}</button>
+          <button class="btn btn-primary btn-new">${ico("plus")} <span data-i18n="New chat">New chat</span></button>
+          <div class="side-search">${ico("search")}<input data-i18n-ph="Search chats…" placeholder="Search chats…" /></div>
         </div>
-        <nav class="chat-list" aria-label="Chat history"></nav>
+        <nav class="chat-list" aria-label="Conversation history"></nav>
         <div class="side-nav">
-          <a class="nav-item" href="#/settings" data-nav="settings">${ico("gear")}<span>Settings</span></a>
-          <a class="nav-item" href="#/docs" data-nav="docs">${ico("doc")}<span>Architecture & Spec</span></a>
+          <a class="nav-item" href="#/settings" data-nav="settings">${ico("gear")}<span data-i18n="Settings">Settings</span></a>
+          <a class="nav-item" href="#/docs" data-nav="docs">${ico("doc")}<span data-i18n="Architecture & Spec">Architecture &amp; Spec</span></a>
         </div>
         <div class="side-bottom">
-          <button class="theme-btn" title="Toggle theme">${ico(settings.theme === "dark" ? "sun" : "moon")}<span>Theme</span></button>
-          <div class="user-chip"><span class="user-dot"></span>Guest<span class="chip-note">${ico("db")} local</span></div>
+          <button class="theme-btn" data-i18n-title="Toggle theme" title="Toggle theme">${ico(settings.theme === "dark" ? "sun" : "moon")}<span data-i18n="Theme">Theme</span></button>
+          <div class="user-chip"><span class="user-dot"></span><span data-i18n="Guest">Guest</span><span class="chip-note">${ico("db")} <span data-i18n="local">local</span></span><span class="ver-chip">${VERSION}</span></div>
         </div>
       </aside>
       <main class="main-col">
@@ -181,8 +190,8 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       </main>
       <aside class="art-panel">
         <div class="art-head">
-          <h3>${ico("layers")} Artifacts <span class="art-count">0</span></h3>
-          <button class="icon-btn art-close" title="Close panel">${ico("close")}</button>
+          <h3>${ico("layers")} <span data-i18n="Artifacts">Artifacts</span> <span class="art-count">0</span></h3>
+          <button class="icon-btn art-close" data-i18n-title="Close panel" title="Close panel">${ico("close")}</button>
         </div>
         <div class="art-body"></div>
       </aside>
@@ -201,23 +210,20 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
 
   function makeChat(): ChatDoc {
     const now = Date.now();
-    return { id: uid(), title: "New chat", createdAt: now, updatedAt: now, msgs: [] };
+    return { id: uid(), title: t("New conversation"), createdAt: now, updatedAt: now, msgs: [] };
   }
 
   const router = new Router();
   let callMgr: CallManager | null = null;
   const engine = new ChatEngine(viewEls.chat, {
-    store, db, client,
-    router,
-    persist,
-    refreshArtifacts,
+    store, db, client, router, persist, refreshArtifacts,
     startCall: (kind) => {
       callMgr?.end(false);
       callMgr = new CallManager({
-        sttLang: store.state.settings.sttLang,
-        ttsVoice: store.state.settings.ttsVoice,
-        ttsRate: store.state.settings.ttsRate,
-        bargeIn: store.state.settings.bargeIn,
+        sttLang: s().sttLang,
+        ttsVoice: s().ttsVoice,
+        ttsRate: s().ttsRate,
+        bargeIn: s().bargeIn,
         getReply: async (text) => {
           const model = store.state.models.find((m) => m.id === store.state.modelId) ?? STATIC_MODELS[0];
           if (model.provider === "local") return localChat(text).text;
@@ -225,9 +231,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
           let out = "";
           try {
             for await (const ev of client.chat(model, [
-              { role: "system", content: "Answer in English, briefly (up to 2 sentences) — this is a voice call." },
+              { role: "system", content: "Reply in English, briefly (max 2 sentences) — this is a voice call." },
               { role: "user", content: text },
-            ], { keys: store.state.settings.keys, signal: ac.signal, deep: false })) {
+            ], { keys: s().keys, signal: ac.signal, deep: false })) {
               if (ev.type === "delta") out += ev.text;
               else if (ev.type === "error") throw new Error(ev.message);
             }
@@ -243,6 +249,17 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     },
   });
 
+  function groupLabel(ts: number): string {
+    const d = new Date(ts);
+    const today = new Date();
+    const yest = new Date(Date.now() - 864e5);
+    const loc = getLang() === "uk" ? "uk-UA" : "en-US";
+    if (d.toDateString() === today.toDateString()) return t("Today");
+    if (d.toDateString() === yest.toDateString()) return t("Yesterday");
+    if (Date.now() - ts < 6 * 864e5) return d.toLocaleDateString(loc, { weekday: "long" });
+    return d.toLocaleDateString(loc, { day: "numeric", month: "short" });
+  }
+
   function renderChatList(filter = ""): void {
     const term = filter.trim().toLowerCase();
     const items = store.state.chats
@@ -250,9 +267,10 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       .sort((a, b) => b.updatedAt - a.updatedAt);
     chatListEl.innerHTML = "";
     if (!items.length) {
-      chatListEl.innerHTML = `<div class="list-empty">${ico("search")} Nothing found</div>`;
+      chatListEl.innerHTML = `<div class="list-empty">${ico("search")} ${t("Nothing found")}</div>`;
       return;
     }
+    const loc = getLang() === "uk" ? "uk-UA" : "en-US";
     let lastGroup = "";
     for (const c of items) {
       const g = groupLabel(c.updatedAt);
@@ -265,271 +283,174 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         <div class="chat-item${active}" data-id="${c.id}">
           <a class="ci-main" href="#/c/${c.id}">
             <span class="ci-title">${escapeHtml(c.title)}</span>
-            <span class="ci-time">${new Date(c.updatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span class="ci-time">${new Date(c.updatedAt).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" })}</span>
           </a>
           <span class="ci-actions">
-            <button data-ciact="rename" title="Rename">${ico("edit")}</button>
-            <button data-ciact="del" title="Delete">${ico("trash")}</button>
+            <button data-ciact="rename" title="${t("Rename")}">${ico("edit")}</button>
+            <button data-ciact="del" title="${t("Delete")}">${ico("trash")}</button>
           </span>
         </div>`);
     }
   }
 
-  function groupLabel(ts: number): string {
-    const d = new Date(ts);
-    const today = new Date();
-    const yest = new Date(Date.now() - 864e5);
-    if (d.toDateString() === today.toDateString()) return "Today";
-    if (d.toDateString() === yest.toDateString()) return "Yesterday";
-    return d.toLocaleDateString("en-US", { day: "numeric", month: "long" });
-  }
-
-  chatListEl.addEventListener("click", async (e) => {
-    const act = (e.target as HTMLElement).closest("[data-ciact]") as HTMLElement | null;
-    const item = (e.target as HTMLElement).closest(".chat-item") as HTMLElement | null;
-    if (!item) return;
-    const id = item.getAttribute("data-id")!;
-    if (act) {
-      e.preventDefault();
-      e.stopPropagation();
-      const chat = store.state.chats.find((c) => c.id === id);
-      if (!chat) return;
-      if (act.getAttribute("data-ciact") === "rename") {
-        const name = await promptDialog({ title: "Rename chat", label: "Title", value: chat.title });
-        if (name) { chat.title = name; persist(); renderChatList(searchInput.value); }
-      } else {
-        const ok = await confirmDialog({ title: "Delete chat?", text: `"${escapeHtml(chat.title)}" will be deleted permanently.`, okText: "Delete", danger: true });
-        if (!ok) return;
-        store.state.chats = store.state.chats.filter((c) => c.id !== id);
-        if (!store.state.chats.length) store.state.chats = [makeChat()];
-        persist();
-        if (store.state.activeId === id) router.navigate(`#/c/${store.state.chats[0].id}`);
-        else renderChatList(searchInput.value);
-        toast("Chat deleted", "ok");
-      }
-      return;
-    }
-    store.state.sidebarOpen = false;
-  });
-
-  searchInput.addEventListener("input", () => renderChatList(searchInput.value));
-  root.querySelector(".btn-new")!.addEventListener("click", () => {
-    const c = makeChat();
-    store.state.chats = [c, ...store.state.chats];
-    persist();
-    router.navigate(`#/c/${c.id}`);
-  });
-  root.querySelector(".theme-btn")!.addEventListener("click", () => {
-    const next = store.state.settings.theme === "dark" ? "light" : "dark";
-    store.setDeep("settings", (s) => ({ ...s, theme: next }));
-  });
-  root.querySelector(".sidebar-scrim")!.addEventListener("click", () => { store.state.sidebarOpen = false; });
-  root.querySelector(".art-close")!.addEventListener("click", () => { store.state.artOpen = false; });
-
-  unsubs.push(store.watch(["chats", "activeId", "view"], () => renderChatList(searchInput.value)));
-  unsubs.push(store.watch(["settings"], () => {
-    void db.set("settings", "app", store.state.settings);
-    applyTheme();
-    const tb = root.querySelector(".theme-btn")!;
-    tb.innerHTML = `${ico(store.state.settings.theme === "dark" ? "sun" : "moon")}<span>Theme</span>`;
-  }));
-  unsubs.push(store.watch(["sidebarOpen"], () => shell.classList.toggle("side-open", store.state.sidebarOpen)));
-  unsubs.push(store.watch(["artOpen"], () => shell.classList.toggle("art-open", store.state.artOpen)));
-
-  function applyTheme(): void {
-    document.documentElement.dataset.theme = store.state.settings.theme;
-    document.documentElement.style.setProperty("--fs", `${store.state.settings.fontSize}px`);
-  }
-  applyTheme();
-
-  let artifacts: Artifact[] = [];
+  let artList: Artifact[] = [];
   let artSel = "";
+  let artTab: "code" | "preview" = "code";
+
   function refreshArtifacts(): void {
     const chat = store.state.chats.find((c) => c.id === store.state.activeId);
-    const map = new Map<string, Artifact>();
-    for (const m of chat?.msgs ?? []) for (const a of m.arts ?? []) map.set(a.id, a);
-    artifacts = [...map.values()].sort((a, b) => b.ts - a.ts);
-    artCount.textContent = String(artifacts.length);
-    if (artifacts.length && !store.state.artOpen) store.state.artOpen = true;
+    artList = (chat?.msgs ?? []).flatMap((m) => m.arts ?? []);
+    if (artSel && !artList.some((a) => a.id === artSel)) artSel = "";
     renderArtifacts();
   }
 
   function renderArtifacts(): void {
-    if (!artifacts.length) {
-      artBody.innerHTML = `
-        <div class="art-list"></div>
-        <div class="art-empty">${ico("layers")}<b>Nothing here yet</b><span>Ask the model to write code or an HTML page — artifacts will appear here with a live preview.</span></div>`;
+    artCount.textContent = String(artList.length);
+    if (!artList.length) {
+      artBody.innerHTML = `<div class="art-empty">${ico("layers")}<b>${t("Artifacts")}</b><span>${t("Code blocks from replies appear here")}</span></div>`;
       return;
     }
-    if (!artSel || !artifacts.some((a) => a.id === artSel)) artSel = artifacts[0].id;
-    const a = artifacts.find((x) => x.id === artSel)!;
-    const isHtml = a.lang === "html";
-    artBody.innerHTML = `
-      <div class="art-list">${artifacts.map((x) => `
-        <button class="art-item${x.id === artSel ? " active" : ""}" data-art="${x.id}">${ico(x.lang === "html" ? "globe" : "code")}<span class="ai-main"><b>${escapeHtml(x.title)}</b><small>${x.lang} · ${x.code.split("\n").length} lines</small></span></button>`).join("")}
+    const sel = artList.find((a) => a.id === artSel) ?? artList[artList.length - 1];
+    artSel = sel.id;
+    const isHtml = sel.lang === "html";
+    const body = `
+      <div class="art-list">${artList.map((a) => `
+        <button class="art-item${a.id === artSel ? " active" : ""}" data-art="${a.id}">
+          ${ico("code")}
+          <span class="ai-main"><b>${escapeHtml(a.title)}</b><small>${new Date(a.ts).toLocaleTimeString(getLang() === "uk" ? "uk-UA" : "en-US", { hour: "2-digit", minute: "2-digit" })}</small></span>
+        </button>`).join("")}
       </div>
       <div class="art-view">
         <div class="art-tabs">
-          <button class="art-tab on" data-tab="code">${ico("code")} Code</button>
-          ${isHtml ? `<button class="art-tab" data-tab="prev">${ico("external")} Preview</button>` : ""}
+          <button class="art-tab${artTab === "code" ? " on" : ""}" data-atab="code">${ico("code")} ${t("Code")}</button>
+          ${isHtml ? `<button class="art-tab${artTab === "preview" ? " on" : ""}" data-atab="preview">${ico("eye")} ${t("Preview")}</button>` : ""}
           <span class="art-spacer"></span>
-          <button class="icon-btn" data-artact="copy" title="Copy">${ico("copy")}</button>
-          <button class="icon-btn" data-artact="dl" title="Download">${ico("download")}</button>
+          <button class="icon-btn" data-aact="copy" title="${t("Copy")}">${ico("copy")}</button>
+          <button class="icon-btn" data-aact="dl" title="${t("Download")}">${ico("download")}</button>
         </div>
-        <div class="art-code" data-pane="code"><div class="cb-body"><div class="cb-num">${a.code.split("\n").map((_, i) => i + 1).join("\n")}</div><pre><code>${escapeHtml(a.code)}</code></pre></div></div>
-        ${isHtml ? `<iframe class="art-preview" data-pane="prev" hidden sandbox="allow-scripts" title="Preview"></iframe>` : ""}
+        <div class="art-content"></div>
       </div>`;
+    artBody.innerHTML = body;
+    const content = artBody.querySelector(".art-content")!;
+    if (artTab === "preview" && isHtml) {
+      const fr = document.createElement("iframe");
+      fr.className = "art-frame";
+      fr.sandbox.add("allow-scripts");
+      fr.srcdoc = sel.code;
+      content.appendChild(fr);
+    } else {
+      content.innerHTML = `<div class="codeblock"><div class="cb-head"><span class="cb-lang">${escapeHtml(sel.lang)}</span></div><div class="cb-body"><pre><code>${escapeHtml(sel.code)}</code></pre></div></div>`;
+    }
+    artBody.querySelectorAll("[data-art]").forEach((b) =>
+      b.addEventListener("click", () => { artSel = b.getAttribute("data-art")!; artTab = "code"; renderArtifacts(); })
+    );
+    artBody.querySelectorAll("[data-atab]").forEach((b) =>
+      b.addEventListener("click", () => { artTab = b.getAttribute("data-atab") as "code" | "preview"; renderArtifacts(); })
+    );
+    artBody.querySelector('[data-aact="copy"]')!.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(sel.code).catch(() => {});
+      toast(t("Copied to clipboard"), "ok");
+    });
+    artBody.querySelector('[data-aact="dl"]')!.addEventListener("click", () => {
+      const ext = { html: "html", js: "js", javascript: "js", ts: "ts", typescript: "ts", python: "py", py: "py", css: "css", json: "json", bash: "sh", sql: "sql" }[sel.lang] ?? "txt";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([sel.code], { type: "text/plain" }));
+      a.download = `artifact-${sel.id.slice(0, 6)}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
   }
-
-  artBody.addEventListener("click", (e) => {
-    const t = e.target as HTMLElement;
-    const item = t.closest(".art-item") as HTMLElement | null;
-    if (item) { artSel = item.getAttribute("data-art")!; renderArtifacts(); return; }
-    const tab = t.closest(".art-tab") as HTMLElement | null;
-    if (tab) {
-      artBody.querySelectorAll(".art-tab").forEach((x) => x.classList.remove("on"));
-      tab.classList.add("on");
-      const which = tab.getAttribute("data-tab")!;
-      const code = artBody.querySelector('[data-pane="code"]') as HTMLElement;
-      const prev = artBody.querySelector('[data-pane="prev"]') as HTMLIFrameElement | null;
-      code.hidden = which !== "code";
-      if (prev) {
-        prev.hidden = which !== "prev";
-        if (which === "prev") {
-          const a = artifacts.find((x) => x.id === artSel)!;
-          prev.srcdoc = a.code;
-        }
-      }
-      return;
-    }
-    const act = t.closest("[data-artact]") as HTMLElement | null;
-    if (act) {
-      const a = artifacts.find((x) => x.id === artSel)!;
-      if (act.getAttribute("data-artact") === "copy") {
-        void navigator.clipboard.writeText(a.code).then(() => toast("Code copied", "ok"));
-      } else {
-        const blob = new Blob([a.code], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `artifact-${a.id}.${a.lang === "typescript" ? "ts" : a.lang}`;
-        link.click();
-        URL.revokeObjectURL(url);
-      }
-    }
-  });
 
   function showView(name: "chat" | "settings" | "docs"): void {
     store.state.view = name;
     store.state.sidebarOpen = false;
     for (const [k, v] of Object.entries(viewEls)) v.hidden = k !== name;
     root.querySelectorAll(".nav-item").forEach((n) => n.classList.toggle("active", n.getAttribute("data-nav") === name));
+    if (name === "settings") renderSettings();
+    if (name === "docs") renderDocs();
   }
 
-  router
-    .add("#/c/:id", (p) => {
-      const chat = store.state.chats.find((c) => c.id === p.id);
-      if (!chat) { router.navigate(`#/c/${store.state.chats[0]?.id ?? ""}`); return; }
-      store.state.activeId = chat.id;
-      showView("chat");
-      engine.renderChat();
-      refreshArtifacts();
-      document.title = `${chat.title} — AI Studio`;
-    })
-    .add("#/settings", () => { showView("settings"); renderSettings(); document.title = "Settings — AI Studio"; })
-    .add("#/docs", () => { showView("docs"); document.title = "Architecture & Spec — AI Studio"; })
-    .setFallback(() => router.navigate(`#/c/${store.state.chats[0].id}`));
-
-  viewEls.docs.innerHTML = `<div class="doc-view"><div class="head-row"><button class="icon-btn view-burger" title="Menu">${ico("menu")}</button><span class="head-row-title">Architecture & Spec</span></div><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
-  root.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest(".view-burger")) store.state.sidebarOpen = true;
-  });
-
-  root.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest(".cb-copy") as HTMLElement | null;
-    if (!btn) return;
-    const code = btn.closest(".codeblock")?.querySelector("pre code")?.textContent ?? "";
-    void navigator.clipboard.writeText(code).then(() => {
-      btn.classList.add("ok");
-      btn.textContent = "copied";
-      setTimeout(() => { btn.classList.remove("ok"); btn.textContent = "copy"; }, 1400);
-    });
-  });
+  function renderDocs(): void {
+    viewEls.docs.innerHTML = `<div class="doc-view"><div class="head-row"><button class="icon-btn view-burger" title="${t("Menu")}">${ico("menu")}</button><span class="head-row-title">${t("Architecture & Spec")}</span></div><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
+    viewEls.docs.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
+  }
 
   function renderSettings(): void {
     const host = viewEls.settings;
-    const s = () => store.state.settings;
-    const set = (patch: Partial<Settings>) => store.setDeep("settings", (x) => ({ ...x, ...patch }));
     host.innerHTML = `
       <div class="set-view">
-        <header class="set-head"><div class="head-row"><button class="icon-btn view-burger" title="Menu">${ico("menu")}</button><h2>${ico("gear")} Settings</h2></div><p>Edge proxy, API keys, voice, interface and data</p></header>
+        <header class="set-head"><div class="head-row"><button class="icon-btn view-burger" title="${t("Menu")}">${ico("menu")}</button><h2>${ico("gear")} ${t("Settings")}</h2></div><p>${t("Edge proxy, API keys, voice, interface and data")}</p></header>
         <div class="set-tabs">
-          <button class="set-tab on" data-tab="api">${ico("key")} Models & API</button>
-          <button class="set-tab" data-tab="voice">${ico("mic")} Voice & Calls</button>
-          <button class="set-tab" data-tab="ui">${ico("sun")} Interface</button>
-          <button class="set-tab" data-tab="data">${ico("db")} Data</button>
+          <button class="set-tab on" data-tab="api">${ico("key")} ${t("Models & API")}</button>
+          <button class="set-tab" data-tab="voice">${ico("mic")} ${t("Voice & Calls")}</button>
+          <button class="set-tab" data-tab="ui">${ico("sun")} ${t("Interface")}</button>
+          <button class="set-tab" data-tab="data">${ico("db")} ${t("Data")}</button>
         </div>
         <div class="set-panel" data-panel="api"></div>
         <div class="set-panel" data-panel="voice" hidden></div>
         <div class="set-panel" data-panel="ui" hidden></div>
         <div class="set-panel" data-panel="data" hidden></div>
       </div>`;
+    host.querySelector(".view-burger")!.addEventListener("click", () => { store.state.sidebarOpen = true; });
     const panels = host.querySelectorAll(".set-panel");
-    host.querySelectorAll(".set-tab").forEach((t) =>
-      t.addEventListener("click", () => {
+    host.querySelectorAll(".set-tab").forEach((tb) =>
+      tb.addEventListener("click", () => {
         host.querySelectorAll(".set-tab").forEach((x) => x.classList.remove("on"));
-        t.classList.add("on");
-        panels.forEach((p) => (p as HTMLElement).hidden = p.getAttribute("data-panel") !== t.getAttribute("data-tab"));
+        tb.classList.add("on");
+        panels.forEach((p) => (p as HTMLElement).hidden = p.getAttribute("data-panel") !== tb.getAttribute("data-tab"));
       })
     );
 
     const api = host.querySelector('[data-panel="api"]')!;
     api.innerHTML = `
       <section class="set-card">
-        <h3>Edge proxy (Cloudflare Workers)</h3>
-        <p class="set-hint">Enter the URL of the worker deployed from <code>edge/</code> — keys stay on the server. Empty field = direct mode with the keys below.</p>
+        <h3>${t("Edge proxy (Cloudflare Workers)")}</h3>
+        <p class="set-hint">${t("Set the URL of your deployed worker from <code>edge/</code> — keys stay on the server. Leave empty for direct mode with the keys below.")}</p>
         <div class="edge-row">
           <input class="text-input" id="edge-url" placeholder="https://ai-studio-edge.example.workers.dev" value="${escapeHtml(s().edgeUrl)}" />
-          <button class="btn btn-ghost" id="edge-test">${ico("bolt")} Check</button>
+          <button class="btn btn-ghost" id="edge-test">${ico("bolt")} ${t("Test")}</button>
         </div>
         <div class="edge-status" id="edge-status"></div>
       </section>
       <section class="set-card">
-        <h3>Provider API keys</h3>
-        <p class="set-hint">Stored only in your browser (IndexedDB). Without keys the offline engine works.</p>
-        <div class="keys-grid">${PROVIDERS.map((p) => `
+        <h3>${t("Provider API keys")}</h3>
+        <p class="set-hint">${t("Stored only in your browser (IndexedDB). Without keys the offline engine runs.")}</p>
+        <div class="keys-grid">${PROVIDERS.map((p) => {
+          const has = !!s().keys[p.keyEnv];
+          return `
           <div class="key-row">
-            <label>${escapeHtml(p.name)}<a href="${p.keyUrl}" target="_blank" rel="noopener">get key ${ico("external")}</a></label>
+            <label><span class="key-dot${has ? " on" : ""}"></span>${escapeHtml(p.name)}<a href="${p.keyUrl}" target="_blank" rel="noopener">${t("get key")} ${ico("external")}</a></label>
             <div class="key-input">
               <input type="password" data-key="${p.id}" placeholder="${p.keyEnv}" value="${escapeHtml(s().keys[p.keyEnv] ?? "")}" />
               <button class="icon-btn eye-btn" title="Show/hide">${ico("key")}</button>
             </div>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
         </div>
       </section>
       <section class="set-card">
-        <h3>Model catalog</h3>
-        <p class="set-hint">Aggregation of <code>/v1/models</code> across all providers (via Edge or directly). Cached in IndexedDB.</p>
+        <h3>${t("Model catalog")}</h3>
+        <p class="set-hint">${t("Aggregates <code>/v1/models</code> from all providers (via Edge or directly). Cached in IndexedDB.")}</p>
         <div class="edge-row">
-          <button class="btn btn-primary" id="refresh-models">${ico("refresh")} Refresh model list</button>
-          <span class="models-count">In catalog: <b>${store.state.models.length}</b></span>
+          <button class="btn btn-primary" id="refresh-models">${ico("refresh")} ${t("Refresh model list")}</button>
+          <span class="models-count">${t("In catalog:")} <b>${store.state.models.length}</b></span>
         </div>
       </section>`;
     api.querySelector("#edge-url")!.addEventListener("change", (e) => set({ edgeUrl: (e.target as HTMLInputElement).value.trim() }));
     api.querySelector("#edge-test")!.addEventListener("click", async () => {
       const st = api.querySelector("#edge-status")!;
-      st.textContent = "Checking…";
+      st.textContent = t("Testing…");
       st.className = "edge-status";
       const ok = await client.health();
-      st.textContent = ok ? "Worker is up — keys live on the server, direct keys not needed." : "No connection. Check the URL and worker CORS.";
+      st.textContent = t(ok ? "Worker is up — keys live server-side, no local keys needed." : "No connection. Check the URL and the worker's CORS.");
       st.classList.add(ok ? "ok" : "bad");
     });
     api.querySelectorAll("input[data-key]").forEach((inp) => {
       inp.addEventListener("change", () => {
         const p = PROVIDERS.find((x) => x.id === inp.getAttribute("data-key"))!;
-        const keys = { ...s().keys, [p.keyEnv]: (inp as HTMLInputElement).value.trim() };
-        set({ keys });
-        toast(`${p.name} key saved locally`, "ok");
+        set({ keys: { ...s().keys, [p.keyEnv]: (inp as HTMLInputElement).value.trim() } });
+        (inp.closest(".key-row")!.querySelector(".key-dot") as HTMLElement).classList.toggle("on", !!(inp as HTMLInputElement).value.trim());
+        toast(`${p.name}: ${t("key saved locally")}`, "ok");
       });
     });
     api.querySelectorAll(".eye-btn").forEach((b) =>
@@ -546,9 +467,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         store.state.models = models;
         void db.set("models", "list", { ts: Date.now(), models });
         api.querySelector(".models-count b")!.textContent = String(models.length);
-        toast(`Models found: ${models.length}`, "ok");
+        toast(`${t("Models found:")} ${models.length}`, "ok");
       } catch {
-        toast("Failed to refresh the catalog", "err");
+        toast(t("Couldn't refresh the catalog"), "err");
       } finally {
         btn.disabled = false;
       }
@@ -557,28 +478,28 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const voice = host.querySelector('[data-panel="voice"]')!;
     voice.innerHTML = `
       <section class="set-card">
-        <h3>Speech recognition (STT)</h3>
-        <div class="field"><span class="field-label">Dictation & call language</span>
+        <h3>${t("Speech recognition (STT)")}</h3>
+        <div class="field"><span class="field-label">${t("Dictation & call language")}</span>
           <select class="text-input" id="stt-lang">
             ${["en-US", "uk-UA", "pl-PL", "de-DE"].map((l) => `<option value="${l}"${s().sttLang === l ? " selected" : ""}>${l}</option>`).join("")}
           </select>
         </div>
       </section>
       <section class="set-card">
-        <h3>Speech synthesis (TTS)</h3>
-        <div class="field"><span class="field-label">Voice</span><select class="text-input" id="tts-voice"><option value="">System default</option></select></div>
-        <div class="field"><span class="field-label">Speaking rate</span><div id="tts-rate"></div></div>
-        <div class="field"><span class="field-label">Check</span><button class="btn btn-ghost" id="tts-test">${ico("volume")} Test voice</button></div>
+        <h3>${t("Speech synthesis (TTS)")}</h3>
+        <div class="field"><span class="field-label">${t("Voice")}</span><select class="text-input" id="tts-voice"><option value="">${t("System default")}</option></select></div>
+        <div class="field"><span class="field-label">${t("Speaking rate")}</span><div id="tts-rate"></div></div>
+        <div class="field"><span class="field-label">${t("Preview")}</span><button class="btn btn-ghost" id="tts-test">${ico("volume")} ${t("Play test phrase")}</button></div>
       </section>
       <section class="set-card">
-        <h3>Calls</h3>
-        <div class="field"><span class="field-label">Barge-in — interrupt the AI with your voice</span><span id="barge"></span></div>
-        <p class="set-hint">While the assistant speaks, microphone amplitude is analyzed; a loud phrase stops the synthesis.</p>
+        <h3>${t("Calls")}</h3>
+        <div class="field"><span class="field-label">${t("Barge-in — interrupt the AI with your voice")}</span><span id="barge"></span></div>
+        <p class="set-hint">${t("While the assistant speaks, your mic amplitude is analyzed; a loud utterance stops the synthesis.")}</p>
       </section>`;
     const voiceSel = voice.querySelector("#tts-voice") as HTMLSelectElement;
     const fillVoices = () => {
       const cur = s().ttsVoice;
-      voiceSel.innerHTML = `<option value="">System default</option>` +
+      voiceSel.innerHTML = `<option value="">${t("System default")}</option>` +
         window.speechSynthesis.getVoices().map((v) => `<option value="${escapeHtml(v.name)}"${v.name === cur ? " selected" : ""}>${escapeHtml(v.name)} (${v.lang})</option>`).join("");
     };
     fillVoices();
@@ -588,10 +509,10 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     voice.querySelector("#tts-rate")!.appendChild(rangeEl({ min: 0.6, max: 1.6, step: 0.05, value: s().ttsRate, fmt: (v) => `${v.toFixed(2)}×`, onChange: (v) => set({ ttsRate: v }) }));
     voice.querySelector("#barge")!.appendChild(switchEl(s().bargeIn, (v) => set({ bargeIn: v })));
     voice.querySelector("#tts-test")!.addEventListener("click", () => {
-      const u = new SpeechSynthesisUtterance("Hello! This is a speech synthesis test. I'm ready for a call.");
-      u.lang = "en-US";
+      const u = new SpeechSynthesisUtterance(t("Hello! This is a speech synthesis test. Ready for a call."));
+      u.lang = getLang() === "uk" ? "uk-UA" : "en-US";
       u.rate = s().ttsRate;
-      const v = window.speechSynthesis.getVoices().find((x) => x.name === s().ttsVoice) ?? window.speechSynthesis.getVoices().find((x) => x.lang.startsWith("en"));
+      const v = window.speechSynthesis.getVoices().find((x) => x.name === s().ttsVoice) ?? window.speechSynthesis.getVoices().find((x) => x.lang.startsWith(getLang() === "uk" ? "uk" : "en"));
       if (v) u.voice = v;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
@@ -600,24 +521,36 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const uiP = host.querySelector('[data-panel="ui"]')!;
     uiP.innerHTML = `
       <section class="set-card">
-        <h3>Theme</h3>
-        <div class="theme-cards">
-          <button class="theme-card${s().theme === "light" ? " on" : ""}" data-th="light"><span class="tc-prev tc-light"></span>Light</button>
-          <button class="theme-card${s().theme === "dark" ? " on" : ""}" data-th="dark"><span class="tc-prev tc-dark"></span>Dark</button>
+        <h3>${t("Language")}</h3>
+        <div class="field"><span class="field-label">${t("Interface language")}</span>
+          <div class="lang-seg">
+            <button data-lang="en"${s().lang === "en" ? " class=on" : ""}>English</button>
+            <button data-lang="uk"${s().lang === "uk" ? " class=on" : ""}>Українська</button>
+          </div>
         </div>
       </section>
       <section class="set-card">
-        <h3>Reading</h3>
-        <div class="field"><span class="field-label">Message text size</span><div id="fs"></div></div>
-        <div class="field"><span class="field-label">Show message timestamps</span><span id="sw-time"></span></div>
+        <h3>${t("Appearance")}</h3>
+        <div class="theme-cards">
+          <button class="theme-card${s().theme === "light" ? " on" : ""}" data-th="light"><span class="tc-prev tc-light"></span>${t("Light")}</button>
+          <button class="theme-card${s().theme === "dark" ? " on" : ""}" data-th="dark"><span class="tc-prev tc-dark"></span>${t("Dark")}</button>
+        </div>
       </section>
       <section class="set-card">
-        <h3>Composer & streaming</h3>
-        <div class="field"><span class="field-label">Enter sends the message</span><span id="sw-enter"></span></div>
-        <div class="field"><span class="field-label">Gradual typing (offline engine)</span><span id="sw-stream"></span></div>
-        <div class="field"><span class="field-label">Notification sounds</span><span id="sw-sound"></span></div>
-        <div class="field"><span class="field-label">Volume</span><div id="vol"></div></div>
+        <h3>${t("Reading")}</h3>
+        <div class="field"><span class="field-label">${t("Message text size")}</span><div id="fs"></div></div>
+        <div class="field"><span class="field-label">${t("Show message timestamps")}</span><span id="sw-time"></span></div>
+      </section>
+      <section class="set-card">
+        <h3>${t("Composer & streaming")}</h3>
+        <div class="field"><span class="field-label">${t("Enter sends the message")}</span><span id="sw-enter"></span></div>
+        <div class="field"><span class="field-label">${t("Gradual typing (offline engine)")}</span><span id="sw-stream"></span></div>
+        <div class="field"><span class="field-label">${t("Notification sounds")}</span><span id="sw-sound"></span></div>
+        <div class="field"><span class="field-label">${t("Volume")}</span><div id="vol"></div></div>
       </section>`;
+    uiP.querySelectorAll("[data-lang]").forEach((b) =>
+      b.addEventListener("click", () => set({ lang: b.getAttribute("data-lang") as Lang }))
+    );
     uiP.querySelectorAll(".theme-card").forEach((c) =>
       c.addEventListener("click", () => {
         set({ theme: c.getAttribute("data-th") as "light" | "dark" });
@@ -636,20 +569,20 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const kb = Math.max(1, Math.round(JSON.stringify(store.state.chats).length / 1024));
     dataP.innerHTML = `
       <section class="set-card">
-        <h3>Local storage (IndexedDB)</h3>
+        <h3>${t("Local storage (IndexedDB)")}</h3>
         <div class="stat-grid">
-          <div class="stat"><b>${store.state.chats.length}</b><span>chats</span></div>
-          <div class="stat"><b>${msgsTotal}</b><span>messages</span></div>
-          <div class="stat"><b>${kb} KB</b><span>of data</span></div>
-          <div class="stat"><b>${store.state.models.length}</b><span>models in catalog</span></div>
+          <div class="stat"><b>${store.state.chats.length}</b><span>${t("chats")}</span></div>
+          <div class="stat"><b>${msgsTotal}</b><span>${t("messages")}</span></div>
+          <div class="stat"><b>${kb} KB</b><span>${t("of data")}</span></div>
+          <div class="stat"><b>${store.state.models.length}</b><span>${t("models in catalog")}</span></div>
         </div>
       </section>
       <section class="set-card">
-        <h3>Export & cleanup</h3>
+        <h3>${t("Export & cleanup")}</h3>
         <div class="edge-row">
-          <button class="btn btn-ghost" id="export-json">${ico("download")} Export JSON</button>
-          <button class="btn btn-ghost danger-text" id="clear-chats">${ico("trash")} Clear all chats</button>
-          <button class="btn btn-danger" id="wipe">${ico("alert")} Full reset</button>
+          <button class="btn btn-ghost" id="export-json">${ico("download")} ${t("Export JSON")}</button>
+          <button class="btn btn-ghost danger-text" id="clear-chats">${ico("trash")} ${t("Clear all chats")}</button>
+          <button class="btn btn-danger" id="wipe">${ico("alert")} ${t("Full reset")}</button>
         </div>
       </section>`;
     dataP.querySelector("#export-json")!.addEventListener("click", () => {
@@ -660,19 +593,19 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       a.download = "ai-studio-export.json";
       a.click();
       URL.revokeObjectURL(url);
-      toast("Exported", "ok");
+      toast(t("Exported"), "ok");
     });
     dataP.querySelector("#clear-chats")!.addEventListener("click", async () => {
-      const ok = await confirmDialog({ title: "Clear chats?", text: "All chat history will be removed from IndexedDB. Settings are kept.", okText: "Clear", danger: true });
+      const ok = await confirmDialog({ title: t("Clear chats?"), text: t("All chat history will be removed from IndexedDB. Settings stay."), okText: t("Clear"), danger: true });
       if (!ok) return;
       store.state.chats = [makeChat()];
       persist();
       router.navigate(`#/c/${store.state.chats[0].id}`);
       renderSettings();
-      toast("History cleared", "ok");
+      toast(t("History cleared"), "ok");
     });
     dataP.querySelector("#wipe")!.addEventListener("click", async () => {
-      const ok = await confirmDialog({ title: "Full reset?", text: "Everything will be deleted: chats, settings, keys and the model cache. This cannot be undone.", okText: "Reset all", danger: true });
+      const ok = await confirmDialog({ title: t("Full reset?"), text: t("Everything will be deleted: chats, settings, keys and the model cache. This can't be undone."), okText: t("Reset everything"), danger: true });
       if (!ok) return;
       await db.clear("chats");
       await db.clear("settings");
@@ -683,11 +616,117 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     });
   }
 
+  chatListEl.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest("[data-ciact]") as HTMLElement | null;
+    if (!btn) return;
+    e.preventDefault();
+    const id = btn.closest(".chat-item")?.getAttribute("data-id") ?? "";
+    const chat = store.state.chats.find((c) => c.id === id);
+    if (!chat) return;
+    if (btn.getAttribute("data-ciact") === "rename") {
+      void promptDialog({ title: "Rename conversation", label: "Title", value: chat.title }).then((v) => {
+        if (v) {
+          chat.title = v;
+          chat.updatedAt = Date.now();
+          persist();
+          renderChatList(searchInput.value);
+        }
+      });
+    } else {
+      void confirmDialog({ title: t("Delete conversation?"), text: t("The conversation and all its messages will be removed from IndexedDB."), okText: t("Delete"), danger: true }).then((ok) => {
+        if (!ok) return;
+        store.state.chats = store.state.chats.filter((c) => c.id !== id);
+        if (!store.state.chats.length) store.state.chats = [makeChat()];
+        persist();
+        if (store.state.activeId === id) router.navigate(`#/c/${store.state.chats[0].id}`);
+        else renderChatList(searchInput.value);
+      });
+    }
+  });
+
+  searchInput.addEventListener("input", () => renderChatList(searchInput.value));
+  root.querySelector(".btn-new")!.addEventListener("click", () => {
+    const c = makeChat();
+    store.state.chats = [c, ...store.state.chats];
+    persist();
+    router.navigate(`#/c/${c.id}`);
+  });
+  root.querySelector(".theme-btn")!.addEventListener("click", () => {
+    set({ theme: s().theme === "dark" ? "light" : "dark" });
+  });
+  root.querySelector(".side-collapse")!.addEventListener("click", () => {
+    store.state.sideCollapsed = !store.state.sideCollapsed;
+  });
+  root.querySelector(".sidebar-scrim")!.addEventListener("click", () => { store.state.sidebarOpen = false; });
+  root.querySelector(".art-close")!.addEventListener("click", () => { store.state.artOpen = false; });
+
+  window.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      if (innerWidth <= 920) store.state.sidebarOpen = !store.state.sidebarOpen;
+      else store.state.sideCollapsed = !store.state.sideCollapsed;
+    }
+  });
+
+  unsubs.push(store.watch(["chats", "activeId", "view"], () => renderChatList(searchInput.value)));
+  let prevLang = s().lang;
+  unsubs.push(store.watch(["settings"], () => {
+    void db.set("settings", "app", store.state.settings);
+    applyTheme();
+    if (s().lang !== prevLang) {
+      prevLang = s().lang;
+      setLang(s().lang);
+      updateI18nAll();
+    }
+    const tb = root.querySelector(".theme-btn")!;
+    tb.innerHTML = `${ico(s().theme === "dark" ? "sun" : "moon")}<span data-i18n="Theme">${t("Theme")}</span>`;
+  }));
+  unsubs.push(store.watch(["sidebarOpen"], () => shell.classList.toggle("side-open", store.state.sidebarOpen)));
+  unsubs.push(store.watch(["sideCollapsed"], () => {
+    shell.classList.toggle("side-collapsed", store.state.sideCollapsed);
+    const btn = root.querySelector(".side-collapse")!;
+    btn.setAttribute("title", t(store.state.sideCollapsed ? "Expand sidebar" : "Collapse sidebar"));
+  }));
+  unsubs.push(store.watch(["artOpen"], () => shell.classList.toggle("art-open", store.state.artOpen)));
+
+  function applyTheme(): void {
+    document.documentElement.dataset.theme = s().theme;
+    document.documentElement.style.setProperty("--fs", `${s().fontSize}px`);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", s().theme === "dark" ? "#141416" : "#f4f4f6");
+  }
+
+  function updateI18nAll(): void {
+    document.documentElement.lang = getLang();
+    applyI18n(root);
+    engine.applyLang();
+    renderChatList(searchInput.value);
+    if (store.state.view === "settings") renderSettings();
+    if (store.state.view === "docs") renderDocs();
+    renderArtifacts();
+  }
+
+  applyTheme();
+
+  router
+    .add("#/c/:id", (p) => {
+      const chat = store.state.chats.find((c) => c.id === p.id);
+      if (!chat) { router.navigate(`#/c/${store.state.chats[0]?.id ?? ""}`); return; }
+      store.state.activeId = chat.id;
+      showView("chat");
+      engine.renderChat();
+      refreshArtifacts();
+      renderChatList(searchInput.value);
+    })
+    .add("#/settings", () => showView("settings"))
+    .add("#/docs", () => showView("docs"))
+    .setFallback(() => router.navigate(`#/c/${store.state.activeId || store.state.chats[0]?.id}`));
+
   renderChatList();
   router.start();
 
   if (settings.edgeUrl || Object.values(settings.keys).some(Boolean)) {
-    client.fetchModels(store.state.settings.keys)
+    client.fetchModels(s().keys)
       .then((models) => {
         if (models.length > 1) {
           store.state.models = models;
