@@ -177,11 +177,11 @@ const UK: Record<string, string> = {
   "Collapse sidebar": "Згорнути меню",
   "Expand sidebar": "Розгорнути меню",
   "Identity": "Ідентичність",
-  "Guest": "Гість",
   "guest mode": "режим гостя",
   "identity mode": "режим ідентичності",
   "local only": "лише локально",
-  "Welcome to Studio": "Вітаємо в Studio",
+  "the quiet ai": "тихий ші",
+  "Welcome to shai": "Вітаємо в shai",
   "Choose how you want to use the app. You can switch anytime in Settings → Identity.": "Оберіть, як користуватися застосунком. Змінити можна будь-коли в Налаштуваннях → Ідентичність.",
   "Own your keys": "Володійте ключами",
   "Decentralized DID account: sign messages, join the node network, connect apps. No server, no password.": "Децентралізований DID-акаунт: підписуйте повідомлення, долучайтесь до мережі нод, з'єднуйте застосунки. Без сервера й пароля.",
@@ -218,7 +218,6 @@ const UK: Record<string, string> = {
   "No identity yet": "Ідентичності ще немає",
   "You are in guest mode — chats and settings are stored locally under no key.": "Ви в режимі гостя — чати й налаштування зберігаються локально без ключа.",
   "Member since": "У мережі з",
-  "Rename": "Перейменувати",
 };
 
 let current: Lang = "en";

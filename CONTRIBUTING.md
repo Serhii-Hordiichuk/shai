@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping build AI Studio! Please read the docs in [`.serhord/`](./.serhord) before your first PR (they are written in Ukrainian):
+Thanks for helping build shai! Please read the docs in [`.serhord/`](./.serhord) before your first PR (they are written in Ukrainian):
 
 - [`CONVENTIONS.md`](./.serhord/CONVENTIONS.md) — coding rules, naming, process (**mandatory**)
 - [`ONBOARDING.md`](./.serhord/ONBOARDING.md) — run the app, add a provider / icon / feature step-by-step

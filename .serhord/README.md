@@ -1,4 +1,4 @@
-# 📁 .serhord — документація проєкту AI Studio
+# 📁 .serhord — документація проєкту shai
 
 > Ця папка — єдине джерело правди для співрозробників.
 > **Правило:** будь-яка зміна коду супроводжується записом у `DECISIONS.md` і `CHANGELOG.md`.
@@ -24,7 +24,7 @@
 
 ## Проєкт коротко
 
-**AI Studio** — AI-чат інтерфейс у стилі Qwen Studio з дзвінками як у Telegram.
+**shai** («the quiet ai»: *sh* — шепіт + *ai*) — AI-чат інтерфейс у стилі Qwen Studio з дзвінками як у Telegram, DID-ідентичністю та безсерверною мережею нод.
 
 - **Frontend:** чистий HTML5 / CSS3 / Vanilla JS (ES6+, TypeScript-синтаксис). Жодних React/Vue/Angular у логіці — React-файл `src/App.tsx` лише монтує vanilla-застосунок.
 - **Backend:** TypeScript на Edge (Cloudflare Workers), папка `edge/` — проксі API, агрегація моделей, KV-кеш. Ключі вендорів не потрапляють у браузер.

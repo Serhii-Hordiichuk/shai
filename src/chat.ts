@@ -700,7 +700,7 @@ export class ChatEngine {
   }
 
   private history(chat: ChatDoc): ChatMsg[] {
-    const sys: ChatMsg[] = [{ role: "system", content: "You are a helpful AI Studio assistant. Answer in English, concise and to the point. Format replies in Markdown, code in fenced blocks with the language tag." }];
+    const sys: ChatMsg[] = [{ role: "system", content: "You are shai, a helpful assistant. Answer in English, concise and to the point. Format replies in Markdown, code in fenced blocks with the language tag." }];
     const hist: ChatMsg[] = chat.msgs
       .filter((m) => !m.err && m.content)
       .slice(-16)

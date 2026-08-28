@@ -51,7 +51,7 @@ export class SSEParser {
 }
 
 export const STATIC_MODELS: ModelInfo[] = [
-  { id: "studio-local", name: "Studio Local (offline)", provider: "local", tag: "no API", free: true },
+  { id: "shai-local", name: "shai local (offline)", provider: "local", tag: "no API", free: true },
   { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "gemini", tag: "powerful · vision", vision: true, free: true },
   { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash-Lite", provider: "gemini", tag: "fast · vision", vision: true, free: true },
   { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash", provider: "gemini", tag: "vision", vision: true, free: true },
@@ -170,7 +170,7 @@ async function* openaiCompat(
   if (provider !== "ollama") headers.Authorization = `Bearer ${keys[KEY_ENV[provider]]}`;
   if (provider === "openrouter") {
     headers["HTTP-Referer"] = location.origin;
-    headers["X-Title"] = "AI Studio";
+    headers["X-Title"] = "shai";
   }
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST", headers, signal,

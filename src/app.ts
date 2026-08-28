@@ -16,9 +16,9 @@ import { t, setLang, getLang, applyI18n } from "./i18n";
 import type { Lang } from "./i18n";
 
 const F = "```";
-const VERSION = "v3.3";
+const VERSION = "v3.4";
 
-const DOC_MD = `# Technical Spec: AI Studio chat interface
+const DOC_MD = `# Technical Spec: shai — the quiet ai
 
 Visual language — a Qwen-style studio: three columns, calm focus on content. Calls follow Telegram: full-screen call, waveform, timer, barge-in.
 
@@ -124,7 +124,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
 
   const savedChats = (await db.get<ChatDoc[]>("chats", "all")) ?? [];
   const savedSettings = (await db.get<Settings>("settings", "app")) ?? null;
-  const savedModel = (await db.get<string>("misc", "modelId")) ?? "studio-local";
+  const savedModel = (await db.get<string>("misc", "modelId")) ?? "shai-local";
   const savedModels = (await db.get<{ ts: number; models: ModelInfo[] }>("models", "list")) ?? null;
 
   const settings: Settings = { ...DEFAULT_SETTINGS, ...(savedSettings ?? {}) };
@@ -153,7 +153,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     sideCollapsed: false,
     view: "chat",
   });
-  if (!store.state.models.some((m) => m.id === store.state.modelId)) store.state.modelId = "studio-local";
+  if (!store.state.models.some((m) => m.id === store.state.modelId)) store.state.modelId = "shai-local";
 
   const client = new EdgeClient(() => store.state.settings.edgeUrl);
   const persist = () => void db.set("chats", "all", store.state.chats);
@@ -167,7 +167,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         <div class="side-top">
           <a class="brand" href="#/">
             <span class="brand-mark">${ico("logo")}</span>
-            <span class="brand-text">Studio<b>AI chat studio</b></span>
+            <span class="brand-text"><span class="brand-name">shai</span><b data-i18n="the quiet ai">the quiet ai</b></span>
           </a>
           <button class="icon-btn side-collapse" data-i18n-title="Collapse sidebar" title="Collapse sidebar">${ico("chevronRight")}</button>
           <button class="btn btn-primary btn-new">${ico("plus")} <span data-i18n="New chat">New chat</span></button>
@@ -407,7 +407,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         <h3>${t("Edge proxy (Cloudflare Workers)")}</h3>
         <p class="set-hint">${t("Set the URL of your deployed worker from <code>edge/</code> — keys stay on the server. Leave empty for direct mode with the keys below.")}</p>
         <div class="edge-row">
-          <input class="text-input" id="edge-url" placeholder="https://ai-studio-edge.example.workers.dev" value="${escapeHtml(s().edgeUrl)}" />
+          <input class="text-input" id="edge-url" placeholder="https://shai-edge.example.workers.dev" value="${escapeHtml(s().edgeUrl)}" />
           <button class="btn btn-ghost" id="edge-test">${ico("bolt")} ${t("Test")}</button>
         </div>
         <div class="edge-status" id="edge-status"></div>
@@ -590,7 +590,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "ai-studio-export.json";
+      a.download = "shai-export.json";
       a.click();
       URL.revokeObjectURL(url);
       toast(t("Exported"), "ok");

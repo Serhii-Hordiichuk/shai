@@ -76,7 +76,7 @@ export class CallManager {
         <div class="call-stage">
           <div class="call-remote">
             <div class="avatar-wrap"><canvas class="avatar-canvas"></canvas></div>
-            <div class="call-name">Studio AI</div>
+            <div class="call-name">shai <span class="call-name-sub">ai</span></div>
             <div class="call-status">${t("Connecting…")}</div>
             <div class="call-caption"><span class="cap-who"></span><span class="cap-text"></span></div>
           </div>

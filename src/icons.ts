@@ -2,7 +2,9 @@ const S = (inner: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 export const icons: Record<string, string> = {
-  logo: S('<path d="M12 2.6 20.3 7v10L12 21.4 3.7 17V7L12 2.6Z"/><path d="M12 7.6v8.8"/><path d="m8.2 9.8 7.6 4.4"/><path d="m15.8 9.8-7.6 4.4"/>'),
+  logo: S(
+    '<path d="M15.2 5.6a4.4 4.4 0 0 0-4.3-1.9c-2.4.2-3.9 1.9-3.7 3.9.2 1.8 1.6 2.9 3.6 3.5l1.5.5c2 .6 3.4 1.7 3.5 3.5.2 2-1.4 3.7-3.8 3.9a4.5 4.5 0 0 1-4.4-2"/><path d="M17.6 8.8a5.2 5.2 0 0 1 0 6.4"/><path d="M20.3 7a8.2 8.2 0 0 1 0 10"/>'
+  ),
   spark: S('<path d="m12 3 1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9L12 3Z"/><path d="m18.7 15.5.8 2.3 2.3.8-2.3.8-.8 2.3-.8-2.3-2.3-.8 2.3-.8.8-2.3Z"/>'),
   send: S('<path d="M4.5 12 20 4.5 15.5 20l-4-6.5L4.5 12Z"/><path d="M11.5 13.5 20 4.5"/>'),
   plus: S('<path d="M12 5v14M5 12h14"/>'),
