@@ -1,7 +1,3 @@
-/* ============================================================
-   ChatEngine — серце застосунку: стримінг, ланцюжок думок,
-   веб-пошук, зображення, артефакти, композер, дзвінки-тригери.
-   ============================================================ */
 import { ico } from "./icons";
 import type { Store } from "./store";
 import type { IDB } from "./db";
@@ -15,7 +11,6 @@ import { el, toast, openPopover } from "./ui";
 import { dictate } from "./call";
 import type { CallLine } from "./call";
 
-/* ---------------- типи стану ---------------- */
 export interface Msg {
   id: string;
   role: "user" | "assistant";
@@ -53,7 +48,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   edgeUrl: "",
   keys: {},
-  sttLang: "uk-UA",
+  sttLang: "en-US",
   ttsVoice: "",
   ttsRate: 1,
   bargeIn: true,
@@ -80,7 +75,7 @@ export interface AppState {
 }
 export const uid = (): string => Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
+const fmtTime = (ts: number) => new Date(ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
 export interface ChatCtx {
   store: Store<AppState>;
@@ -93,13 +88,12 @@ export interface ChatCtx {
 }
 
 const SUGGESTIONS = [
-  { icon: "code", text: "Поясни, як працює SSE-стрімінг, з прикладом коду" },
-  { icon: "wand", text: "Напиши HTML-сторінку з таймером Помодоро" },
-  { icon: "spark", text: "Розкажи про архітектуру цього застосунку" },
-  { icon: "brain", text: "Порахуй (128 + 47) * 3 і поясни порядок дій" },
+  { icon: "code", text: "Explain how SSE streaming works, with a code example" },
+  { icon: "wand", text: "Build an HTML page with a Pomodoro timer" },
+  { icon: "spark", text: "Walk me through this app's architecture" },
+  { icon: "brain", text: "Compute (128 + 47) * 3 and explain the order of operations" },
 ];
 
-/* ---------------- звуки ---------------- */
 function ping(ctx: ChatCtx, kind: "send" | "recv"): void {
   const s = ctx.store.state.settings;
   if (!s.sound) return;
@@ -120,7 +114,6 @@ function ping(ctx: ChatCtx, kind: "send" | "recv"): void {
   } catch { /* noop */ }
 }
 
-/* ============================================================ */
 export class ChatEngine {
   private topbar!: HTMLElement;
   private listEl!: HTMLElement;
@@ -133,45 +126,43 @@ export class ChatEngine {
   private controller: AbortController | null = null;
   private fileInput!: HTMLInputElement;
   private dictStop: (() => void) | null = null;
-  private downBtn = false;
 
   constructor(private host: HTMLElement, private ctx: ChatCtx) {
     this.build();
     this.bind();
   }
 
-  /* ---------- каркас ---------- */
   private build(): void {
     this.host.innerHTML = `
       <div class="chat-top">
-        <button class="icon-btn sidebar-burger" title="Меню">${ico("menu")}</button>
-        <button class="model-btn" title="Обрати модель"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
+        <button class="icon-btn sidebar-burger" title="Menu">${ico("menu")}</button>
+        <button class="model-btn" title="Choose model"><span class="model-dot"></span><span class="model-label">…</span>${ico("chevronDown")}</button>
         <div class="top-toggles">
-          <button class="pill-toggle" data-flag="webSearch" title="Шукати джерела в мережі перед відповіддю">${ico("globe")}<span>Веб-пошук</span></button>
-          <button class="pill-toggle" data-flag="deepThink" title="Показувати ланцюжок думок моделі">${ico("brain")}<span>Глибоке мислення</span></button>
+          <button class="pill-toggle" data-flag="webSearch" title="Look up sources on the web before answering">${ico("globe")}<span>Web search</span></button>
+          <button class="pill-toggle" data-flag="deepThink" title="Show the model's chain of thought">${ico("brain")}<span>Deep thinking</span></button>
         </div>
         <div class="top-actions">
-          <button class="icon-btn call-direct" data-act="call-audio" title="Голосовий дзвінок">${ico("phone")}</button>
-          <button class="icon-btn call-direct" data-act="call-video" title="Відеодзвінок">${ico("video")}</button>
-          <button class="icon-btn call-more" data-act="call-menu" title="Дзвінок">${ico("phone")}</button>
+          <button class="icon-btn call-direct" data-act="call-audio" title="Voice call">${ico("phone")}</button>
+          <button class="icon-btn call-direct" data-act="call-video" title="Video call">${ico("video")}</button>
+          <button class="icon-btn call-more" data-act="call-menu" title="Call">${ico("phone")}</button>
         </div>
       </div>
       <div class="msg-scroll"><div class="msg-list"></div>
-        <button class="jump-btn" title="Донизу">${ico("arrowDown")}<span class="jump-count" hidden>0</span></button>
+        <button class="jump-btn" title="Scroll to bottom">${ico("arrowDown")}<span class="jump-count" hidden>0</span></button>
       </div>
       <div class="composer">
         <div class="comp-chips" hidden></div>
         <div class="comp-box">
-          <textarea class="comp-ta" rows="1" placeholder="Повідомлення…" title="Enter — надіслати, Shift+Enter — новий рядок"></textarea>
+          <textarea class="comp-ta" rows="1" placeholder="Message…" title="Enter — send, Shift+Enter — new line"></textarea>
           <div class="comp-btns">
-            <button class="icon-btn" data-act="attach" title="Прикріпити зображення">${ico("image")}</button>
-            <button class="icon-btn mic-btn" data-act="dictate" title="Голосове введення">${ico("mic")}</button>
-            <button class="send-btn" data-act="send" title="Надіслати">${ico("send")}</button>
+            <button class="icon-btn" data-act="attach" title="Attach images">${ico("image")}</button>
+            <button class="icon-btn mic-btn" data-act="dictate" title="Voice input">${ico("mic")}</button>
+            <button class="send-btn" data-act="send" title="Send">${ico("send")}</button>
           </div>
         </div>
-        <div class="comp-hint"><span class="hint-model"></span><span>Може помилятися — перевіряйте важливе</span></div>
+        <div class="comp-hint"><span class="hint-model"></span><span>AI can make mistakes — double-check important info</span></div>
       </div>
-      <div class="drop-veil" hidden><div class="drop-card">${ico("image")}<b>Відпустіть, щоб додати зображення</b></div></div>
+      <div class="drop-veil" hidden><div class="drop-card">${ico("image")}<b>Drop to attach images</b></div></div>
       <input type="file" accept="image/*" multiple hidden />`;
     this.topbar = this.host.querySelector(".chat-top")!;
     this.listEl = this.host.querySelector(".msg-list")!;
@@ -183,7 +174,6 @@ export class ChatEngine {
     this.fileInput = this.host.querySelector("input[type=file]")!;
   }
 
-  /* ---------- події ---------- */
   private bind(): void {
     const { store } = this.ctx;
 
@@ -202,8 +192,8 @@ export class ChatEngine {
     this.topbar.querySelector('[data-act="call-menu"]')!.addEventListener("click", (e) => {
       const menu = el("div", "dd-callmenu");
       menu.innerHTML = `
-        <button class="dd-item" data-kind="audio">${ico("phone")}<span class="dd-name">Голосовий дзвінок</span></button>
-        <button class="dd-item" data-kind="video">${ico("video")}<span class="dd-name">Відеодзвінок</span></button>`;
+        <button class="dd-item" data-kind="audio">${ico("phone")}<span class="dd-name">Voice call</span></button>
+        <button class="dd-item" data-kind="video">${ico("video")}<span class="dd-name">Video call</span></button>`;
       const close = openPopover(e.currentTarget as HTMLElement, menu, { align: "right", width: 224 });
       menu.addEventListener("click", (ev) => {
         const item = (ev.target as HTMLElement).closest(".dd-item") as HTMLElement | null;
@@ -213,7 +203,6 @@ export class ChatEngine {
       });
     });
 
-    // композер
     this.ta.addEventListener("input", () => this.autosize());
     this.ta.addEventListener("keydown", (e) => {
       const enterSend = store.state.settings.enterSend;
@@ -226,7 +215,6 @@ export class ChatEngine {
       if (this.controller) this.stop();
       else this.submit();
     });
-    this.topbar; // noop keep ref
     this.host.querySelector('[data-act="attach"]')!.addEventListener("click", () => this.fileInput.click());
     this.fileInput.addEventListener("change", () => {
       void this.addFiles(this.fileInput.files);
@@ -235,7 +223,6 @@ export class ChatEngine {
     const micBtn = this.host.querySelector(".mic-btn")!;
     micBtn.addEventListener("click", () => this.toggleDictate(micBtn as HTMLElement));
 
-    // paste / dnd зображень
     this.ta.addEventListener("paste", (e) => {
       const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith("image/"));
       if (files.length) { e.preventDefault(); void this.addFiles(files); }
@@ -259,7 +246,6 @@ export class ChatEngine {
       void this.addFiles(e.dataTransfer?.files);
     });
 
-    // делегування: дії повідомлень, чіпи, картки-підказки
     this.listEl.addEventListener("click", (e) => {
       const t = e.target as HTMLElement;
       const actBtn = t.closest("[data-mact]") as HTMLElement | null;
@@ -288,8 +274,8 @@ export class ChatEngine {
         const block = chip.closest(".codeblock")?.querySelector("pre code")?.textContent ?? "";
         void this.copyText(block);
         chip.classList.add("ok");
-        chip.textContent = "скопійовано";
-        setTimeout(() => { chip.classList.remove("ok"); chip.textContent = "копіювати"; }, 1500);
+        chip.textContent = "copied";
+        setTimeout(() => { chip.classList.remove("ok"); chip.textContent = "copy"; }, 1500);
         return;
       }
       const openArt = t.closest(".cb-open") as HTMLElement | null;
@@ -299,7 +285,6 @@ export class ChatEngine {
       }
     });
 
-    // кнопка «донизу»
     const jump = this.host.querySelector(".jump-btn") as HTMLElement;
     const count = jump.querySelector(".jump-count") as HTMLElement;
     this.scroller.addEventListener("scroll", () => {
@@ -309,18 +294,16 @@ export class ChatEngine {
     });
     jump.addEventListener("click", () => this.scrollBottom(true));
 
-    // реактивність
     store.watch(["modelId", "models"], () => this.syncModelBtn());
     store.watch(["webSearch", "deepThink"], () => this.syncToggles());
     this.syncToggles();
   }
 
-  /* ---------- селектор моделей ---------- */
   private openModelMenu(): void {
     const { store, client } = this.ctx;
     const wrap = el("div", "dd-models");
     const q = el<HTMLInputElement>("input", "dd-search");
-    q.placeholder = "Пошук моделі…";
+    q.placeholder = "Search models…";
     const body = el("div", "dd-body");
     wrap.append(q, body);
     const render = () => {
@@ -333,7 +316,7 @@ export class ChatEngine {
         groups.get(key)!.push(m);
       }
       body.innerHTML = "";
-      if (!groups.size) body.innerHTML = `<div class="dd-empty">Нічого не знайдено</div>`;
+      if (!groups.size) body.innerHTML = `<div class="dd-empty">Nothing found</div>`;
       for (const [name, list] of groups) {
         body.insertAdjacentHTML("beforeend", `<div class="dd-group">${escapeHtml(name)}</div>`);
         for (const m of list) {
@@ -341,7 +324,7 @@ export class ChatEngine {
           const locked = m.provider !== "local" && !store.state.settings.keys[KEY_FOR(m.provider)] && !store.state.settings.edgeUrl ? " locked" : "";
           body.insertAdjacentHTML("beforeend", `
             <button class="dd-item${active}${locked}" data-model="${escapeHtml(m.id)}">
-              <span class="dd-name">${escapeHtml(m.name)}${locked ? `<span class="dd-lock" title="Потрібен API-ключ або Edge-воркер">${ico("key")}</span>` : ""}</span>
+              <span class="dd-name">${escapeHtml(m.name)}${locked ? `<span class="dd-lock" title="Requires an API key or the Edge worker">${ico("key")}</span>` : ""}</span>
               ${m.tag ? `<span class="dd-tag">${escapeHtml(m.tag)}</span>` : ""}
               ${active ? `<span class="dd-check">${ico("check")}</span>` : ""}
             </button>`);
@@ -356,11 +339,11 @@ export class ChatEngine {
       store.state.modelId = id;
       void this.ctx.db.set("misc", "modelId", id);
       this.syncModelBtn();
-      toast(`Модель: ${store.state.models.find((m) => m.id === id)?.name ?? id}`, "ok");
+      toast(`Model: ${store.state.models.find((m) => m.id === id)?.name ?? id}`, "ok");
       closeNow();
     });
     const foot = el("div", "dd-foot");
-    foot.innerHTML = `<button class="btn btn-ghost btn-sm">${ico("refresh")} Оновити список</button><a class="btn btn-ghost btn-sm" href="#/settings">${ico("gear")} Налаштування</a>`;
+    foot.innerHTML = `<button class="btn btn-ghost btn-sm">${ico("refresh")} Refresh list</button><a class="btn btn-ghost btn-sm" href="#/settings">${ico("gear")} Settings</a>`;
     wrap.appendChild(foot);
     foot.querySelector("button")!.addEventListener("click", async () => {
       (foot.querySelector("button") as HTMLButtonElement).disabled = true;
@@ -369,9 +352,9 @@ export class ChatEngine {
         store.state.models = models;
         void this.ctx.db.set("models", "list", { ts: Date.now(), models });
         render();
-        toast(`Знайдено моделей: ${models.length}`, "ok");
+        toast(`Models found: ${models.length}`, "ok");
       } catch {
-        toast("Не вдалося оновити моделі", "err");
+        toast("Failed to refresh models", "err");
       } finally {
         (foot.querySelector("button") as HTMLButtonElement).disabled = false;
       }
@@ -397,7 +380,6 @@ export class ChatEngine {
     });
   }
 
-  /* ---------- зображення ---------- */
   private async addFiles(files?: FileList | File[] | null): Promise<void> {
     const list = Array.from(files ?? []).filter((f) => f.type.startsWith("image/"));
     if (!list.length) return;
@@ -413,7 +395,7 @@ export class ChatEngine {
     this.chipsEl.hidden = !this.pending.length;
     this.pending.forEach((src, i) => {
       const chip = el("div", "comp-chip");
-      chip.innerHTML = `<img src="${src}" alt=""/><button title="Прибрати">${ico("close")}</button>`;
+      chip.innerHTML = `<img src="${src}" alt=""/><button title="Remove">${ico("close")}</button>`;
       chip.querySelector("button")!.addEventListener("click", () => {
         this.pending.splice(i, 1);
         this.renderChips();
@@ -422,7 +404,6 @@ export class ChatEngine {
     });
   }
 
-  /* ---------- диктовка ---------- */
   private toggleDictate(btn: HTMLElement): void {
     if (this.dictStop) {
       this.dictStop();
@@ -446,7 +427,7 @@ export class ChatEngine {
       }
     );
     if (!stop) {
-      toast("Web Speech API недоступний у цьому браузері", "err");
+      toast("Web Speech API is not available in this browser", "err");
       return;
     }
     this.dictStop = stop;
@@ -458,7 +439,6 @@ export class ChatEngine {
     this.ta.style.height = Math.min(this.ta.scrollHeight, 160) + "px";
   }
 
-  /* ---------- рендер ---------- */
   renderChat(): void {
     const chat = this.activeChat();
     this.listEl.innerHTML = "";
@@ -480,8 +460,8 @@ export class ChatEngine {
     const wrap = el("div", "empty-state");
     wrap.innerHTML = `
       <div class="greet-mark">${ico("logo")}</div>
-      <h2 class="greet-title">Чим можу допомогти?</h2>
-      <p class="greet-sub">Оберіть модель, увімкніть веб-пошук чи глибоке мислення — або почніть з підказки</p>
+      <h2 class="greet-title">How can I help?</h2>
+      <p class="greet-sub">Pick a model, toggle web search or deep thinking — or start from a suggestion</p>
       <div class="sugg-grid">${SUGGESTIONS.map((s) => `
         <button class="sugg-card" data-text="${escapeHtml(s.text)}">${ico(s.icon)}<span>${escapeHtml(s.text)}</span></button>`).join("")}
       </div>`;
@@ -502,27 +482,26 @@ export class ChatEngine {
         </div>`;
       return row;
     }
-    // assistant
     const src = m.sources?.length
-      ? `<div class="src-row"><span class="src-note">${ico("globe")} ${m.sources.length} джерел${m.sources.length === 1 ? "о" : "а"}</span>${m.sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")}</div>`
+      ? `<div class="src-row"><span class="src-note">${ico("globe")} ${m.sources.length} source${m.sources.length === 1 ? "" : "s"}</span>${m.sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")}</div>`
       : "";
     const think = m.thinking
-      ? `<div class="think-card"><div class="think-head">${ico("brain")}<span>Ланцюжок думок</span>${ico("chevronDown")}</div><div class="think-body">${escapeHtml(m.thinking).replace(/\n/g, "<br>")}</div></div>`
+      ? `<div class="think-card"><div class="think-head">${ico("brain")}<span>Chain of thought</span>${ico("chevronDown")}</div><div class="think-body">${escapeHtml(m.thinking).replace(/\n/g, "<br>")}</div></div>`
       : "";
     const content = m.content ? renderMarkdown(m.content) : "";
-    const errHtml = m.err ? `<div class="msg-err">${ico("alert")}<span>${escapeHtml(m.err)}</span><button class="btn btn-sm btn-ghost" data-mact="retry">Повторити</button></div>` : "";
+    const errHtml = m.err ? `<div class="msg-err">${ico("alert")}<span>${escapeHtml(m.err)}</span><button class="btn btn-sm btn-ghost" data-mact="retry">Retry</button></div>` : "";
     const meta = m.model ? `<span class="meta-model">${escapeHtml(m.model)}</span>` : "";
     row.innerHTML = `
-      <div class="msg-avatar" title="Асистент">${ico("spark")}</div>
+      <div class="msg-avatar" title="Assistant">${ico("spark")}</div>
       <div class="msg-body">
         ${src}${think}
         <div class="msg-content">${content}</div>
         ${errHtml}
         <div class="msg-meta">${meta}${this.ctx.store.state.settings.showTime ? `<span>${fmtTime(m.ts)}</span>` : ""}</div>
         ${m.content && !m.err ? `<div class="msg-actions">
-          <button class="ma-btn" data-mact="copy" title="Копіювати">${ico("copy")}</button>
-          <button class="ma-btn" data-mact="tts" title="Озвучити">${ico("volume")}</button>
-          <button class="ma-btn" data-mact="regen" title="Повторити відповідь">${ico("refresh")}</button>
+          <button class="ma-btn" data-mact="copy" title="Copy">${ico("copy")}</button>
+          <button class="ma-btn" data-mact="tts" title="Read aloud">${ico("volume")}</button>
+          <button class="ma-btn" data-mact="regen" title="Regenerate">${ico("refresh")}</button>
         </div>` : ""}
       </div>`;
     return row;
@@ -541,9 +520,9 @@ export class ChatEngine {
   private async copyText(text: string): Promise<void> {
     try {
       await navigator.clipboard.writeText(text);
-      toast("Скопійовано в буфер", "ok");
+      toast("Copied to clipboard", "ok");
     } catch {
-      toast("Не вдалося скопіювати", "err");
+      toast("Failed to copy", "err");
     }
   }
 
@@ -553,18 +532,17 @@ export class ChatEngine {
     if (!synth) return;
     synth.cancel();
     const u = new SpeechSynthesisUtterance(text.replace(/[*_`#>]/g, "").slice(0, 800));
-    u.lang = "uk-UA";
+    u.lang = "en-US";
     u.rate = s.ttsRate;
-    const v = synth.getVoices().find((x) => x.name === s.ttsVoice) ?? synth.getVoices().find((x) => x.lang.startsWith("uk"));
+    const v = synth.getVoices().find((x) => x.name === s.ttsVoice) ?? synth.getVoices().find((x) => x.lang.startsWith("en"));
     if (v) u.voice = v;
     synth.speak(u);
   }
 
-  /* ---------- надсилання ---------- */
   private submit(): void {
     const text = this.ta.value.trim();
     if (!text && !this.pending.length) return;
-    void this.send(text || "Опиши ці зображення", this.pending);
+    void this.send(text || "Describe these images", this.pending);
     this.pending = [];
     this.renderChips();
     this.ta.value = "";
@@ -574,10 +552,9 @@ export class ChatEngine {
 
   async send(text: string, images: string[]): Promise<void> {
     const { store } = this.ctx;
-    let chat = this.activeChat();
+    const chat = this.activeChat();
     if (!chat) return;
 
-    // перше повідомлення — назва розмови
     if (!chat.msgs.length) {
       chat.title = text.length > 38 ? text.slice(0, 35) + "…" : text;
     }
@@ -586,13 +563,11 @@ export class ChatEngine {
     chat.updatedAt = Date.now();
     this.ctx.persist();
 
-    // прибираємо empty state
     if (this.listEl.querySelector(".empty-state")) this.listEl.innerHTML = "";
     this.listEl.appendChild(this.msgEl(userMsg));
     this.scrollBottom(true);
     ping(this.ctx, "send");
 
-    // --- веб-пошук ---
     const wantWeb = store.state.webSearch;
     const deep = store.state.deepThink;
     let sources: WebSource[] = [];
@@ -609,7 +584,7 @@ export class ChatEngine {
       <div class="msg-body">
         <div class="src-row" hidden></div>
         <div class="think-card${deep ? " active open" : ""}" ${deep ? "" : "hidden"}>
-          <div class="think-head">${ico("brain")}<span>Ланцюжок думок</span><span class="think-dots"><i></i><i></i><i></i></span>${ico("chevronDown")}</div>
+          <div class="think-head">${ico("brain")}<span>Chain of thought</span><span class="think-dots"><i></i><i></i><i></i></span>${ico("chevronDown")}</div>
           <div class="think-body"></div>
         </div>
         <div class="msg-content"><span class="stream-caret"></span></div>
@@ -624,24 +599,23 @@ export class ChatEngine {
 
     if (wantWeb) {
       srcRow.hidden = false;
-      srcRow.innerHTML = `<span class="src-note src-busy">${ico("globe")} Шукаю джерела в мережі…</span>`;
+      srcRow.innerHTML = `<span class="src-note src-busy">${ico("globe")} Searching the web…</span>`;
       try {
         sources = await webSearch(text);
       } catch { sources = []; }
       srcRow.innerHTML = sources.length
-        ? `<span class="src-note">${ico("globe")} ${sources.length} джерела</span>` + sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")
-        : `<span class="src-note">${ico("globe")} Нічого не знайдено — відповідаю без контексту</span>`;
+        ? `<span class="src-note">${ico("globe")} ${sources.length} sources</span>` + sources.map((s, i) => `<a class="src-chip" href="${s.url}" target="_blank" rel="noopener"><b>${i + 1}</b>${escapeHtml(s.title)}</a>`).join("")
+        : `<span class="src-note">${ico("globe")} Nothing found — answering without context</span>`;
       webContext = sourcesContext(sources);
       this.scrollBottom(true);
     }
 
-    // --- потік відповіді ---
     const model = store.state.models.find((m) => m.id === store.state.modelId) ?? STATIC_MODELS[0];
     this.controller = new AbortController();
     const sig = this.controller.signal;
     this.sendBtn.classList.add("busy");
     this.sendBtn.innerHTML = ico("stop");
-    this.sendBtn.title = "Зупинити";
+    this.sendBtn.title = "Stop";
 
     let raw = "";
     let thinkRaw = "";
@@ -679,18 +653,17 @@ export class ChatEngine {
       paint(true);
     } catch (e: any) {
       if (sig.aborted || e?.name === "AbortError") {
-        if (raw) raw += "\n\n*— зупинено користувачем*";
+        if (raw) raw += "\n\n*— stopped by user*";
       } else {
-        aiMsg.err = e?.message || "Невідома помилка";
+        aiMsg.err = e?.message || "Unknown error";
       }
     } finally {
       this.controller = null;
       this.sendBtn.classList.remove("busy");
       this.sendBtn.innerHTML = ico("send");
-      this.sendBtn.title = "Надіслати";
+      this.sendBtn.title = "Send";
     }
 
-    // --- фіксація ---
     aiMsg.content = raw;
     aiMsg.thinking = thinkRaw || undefined;
     aiMsg.sources = sources.length ? sources : undefined;
@@ -706,13 +679,13 @@ export class ChatEngine {
       ping(this.ctx, "recv");
       if (aiMsg.arts?.length) {
         this.ctx.refreshArtifacts();
-        toast(`Артефактів додано: ${aiMsg.arts.length}`, "ok");
+        toast(`Artifacts added: ${aiMsg.arts.length}`, "ok");
       }
     }
   }
 
   private history(chat: ChatDoc): ChatMsg[] {
-    const sys: ChatMsg[] = [{ role: "system", content: "Ти — корисний асистент AI Studio. Відповідай українською, стисло й по суті. Форматуй відповіді у Markdown, код — у блоках із мовою." }];
+    const sys: ChatMsg[] = [{ role: "system", content: "You are a helpful AI Studio assistant. Answer in English, be concise and to the point. Format replies in Markdown, put code in fenced blocks with a language tag." }];
     const hist: ChatMsg[] = chat.msgs
       .filter((m) => !m.err && m.content)
       .slice(-16)
@@ -763,24 +736,22 @@ export class ChatEngine {
     if (userText) await this.send(userText, []);
   }
 
-  /* ---------- дзвінок → стенограма ---------- */
   addCallLog(lines: CallLine[], sec: number, kind: "audio" | "video"): void {
     const chat = this.activeChat();
     if (!chat) return;
     const mm = Math.floor(sec / 60).toString().padStart(2, "0");
     const ss = Math.floor(sec % 60).toString().padStart(2, "0");
-    const body = lines.map((l) => `- **${l.who === "me" ? "Ви" : "AI"}**: ${l.text}`).join("\n");
+    const body = lines.map((l) => `- **${l.who === "me" ? "You" : "AI"}**: ${l.text}`).join("\n");
     chat.msgs.push({
       id: uid(), role: "assistant", ts: Date.now(),
-      content: `**${kind === "video" ? "Відеодзвінок" : "Голосовий дзвінок"} завершено** · тривалість ${mm}:${ss}\n\n**Стенограма:**\n${body}`,
+      content: `**${kind === "video" ? "Video call" : "Voice call"} ended** · duration ${mm}:${ss}\n\n**Transcript:**\n${body}`,
     });
     chat.updatedAt = Date.now();
     this.ctx.persist();
     if (this.ctx.store.state.activeId === chat.id) this.renderChat();
-    toast("Стенограму дзвінка додано в розмову", "ok");
+    toast("Call transcript added to the chat", "ok");
   }
 
-  /* ---------- скрол ---------- */
   private nearBottom(): boolean {
     return this.scroller.scrollHeight - this.scroller.scrollTop - this.scroller.clientHeight < 130;
   }
@@ -789,7 +760,6 @@ export class ChatEngine {
   }
 }
 
-/* ключ для провайдера (синхронізовано з api.ts) */
 function KEY_FOR(p: ProviderId): string {
   const map: Record<string, string> = {
     openai: "OPENAI_API_KEY", deepseek: "DEEPSEEK_API_KEY", groq: "GROQ_API_KEY",
@@ -799,7 +769,6 @@ function KEY_FOR(p: ProviderId): string {
   return map[p] ?? "";
 }
 
-/* стиснення зображення до dataURL */
 function fileToDataUrl(file: File): Promise<string | null> {
   return new Promise((resolve) => {
     const reader = new FileReader();

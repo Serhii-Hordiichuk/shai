@@ -1,8 +1,3 @@
-/* ============================================================
-   class EdgeRouter — мінімальний роутер для Cloudflare Workers
-   Патерни: '/api/chat', підтримка CORS-префлайту, JSON-помилки
-   ============================================================ */
-
 export type Ctx = ExecutionContext;
 
 export type Handler = (

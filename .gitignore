@@ -1,5 +1,15 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+.dev.vars
+.wrangler
+.DS_Store
+*.log
+coverage
 node_modules/
 .next/
 dist/
 build/
-*.log

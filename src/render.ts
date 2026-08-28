@@ -1,7 +1,3 @@
-/* ============================================================
-   Рендеринг Markdown + Code: marked + highlight.js (zero-dep).
-   Кастомні блоки коду: копіювання, лічильник рядків, артефакти.
-   ============================================================ */
 import { marked } from "marked";
 import hljs from "highlight.js/lib/core";
 import langJs from "highlight.js/lib/languages/javascript";
@@ -59,7 +55,6 @@ function highlight(code: string, lang: string): string {
   return escapeHtml(code);
 }
 
-/** Зібрати всі артефакти з Markdown-тексту */
 export function extractArtifacts(md: string, ts = Date.now()): Artifact[] {
   const out: Artifact[] = [];
   const re = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
@@ -71,7 +66,7 @@ export function extractArtifacts(md: string, ts = Date.now()): Artifact[] {
     out.push({
       id: hashStr(lang + ":" + code),
       lang,
-      title: lang === "html" ? "HTML-сторінка" : `Фрагмент ${lang.toUpperCase()}`,
+      title: lang === "html" ? "HTML page" : `${lang.toUpperCase()} snippet`,
       code,
       ts,
     });
@@ -88,9 +83,9 @@ function codeBlockHtml(lang: string, code: string): string {
   return [
     `<div class="codeblock${isArtifact ? " is-artifact" : ""}" data-artifact-id="${id}">`,
     `<div class="cb-head"><span class="cb-lang">${escapeHtml(l)}</span>`,
-    `<span class="cb-lines">${lines.length} ${lines.length === 1 ? "рядок" : lines.length < 5 ? "рядки" : "рядків"}</span>`,
-    isArtifact ? `<button class="cb-open" title="Відкрити в панелі артефактів">арт</button>` : "",
-    `<button class="cb-copy" title="Копіювати код">копіювати</button></div>`,
+    `<span class="cb-lines">${lines.length} ${lines.length === 1 ? "line" : "lines"}</span>`,
+    isArtifact ? `<button class="cb-open" title="Open in the artifacts panel">art</button>` : "",
+    `<button class="cb-copy" title="Copy code">copy</button></div>`,
     `<div class="cb-body"><div class="cb-num" aria-hidden="true">${nums}</div><pre><code>${highlight(code, l)}</code></pre></div>`,
     `</div>`,
   ].join("");
@@ -98,7 +93,6 @@ function codeBlockHtml(lang: string, code: string): string {
 
 const renderer = new marked.Renderer();
 (renderer as any).code = function (this: unknown, arg: unknown) {
-  // сумісність зі старим і новим API marked
   const text = typeof arg === "string" ? arg : ((arg as any)?.text ?? "");
   const lang = typeof arg === "object" ? ((arg as any)?.lang ?? "") : "";
   return codeBlockHtml(String(lang || ""), String(text || "").replace(/\n$/, ""));
@@ -106,7 +100,6 @@ const renderer = new marked.Renderer();
 
 marked.setOptions({ renderer, breaks: true, gfm: true });
 
-/** Markdown → HTML (блоки коду — кастомні) */
 export function renderMarkdown(md: string): string {
   try {
     return marked.parse(md, { async: false }) as string;

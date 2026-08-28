@@ -1,17 +1,13 @@
-/* ============================================================
-   app.ts — точка входу Vanilla-застосунку: store, router,
-   IndexedDB, сайдбар, артефакти, налаштування, сторінка ТЗ.
-   ============================================================ */
 import { ico } from "./icons";
 import { Store } from "./store";
 import { IDB } from "./db";
 import { Router } from "./router";
-import { EdgeClient, STATIC_MODELS, PROVIDERS, providerName } from "./api";
+import { EdgeClient, STATIC_MODELS, PROVIDERS } from "./api";
 import type { ModelInfo } from "./api";
 import { ChatEngine, DEFAULT_SETTINGS, uid } from "./chat";
 import type { AppState, ChatDoc, Settings } from "./chat";
 import { localChat } from "./engine";
-import { el, toast, confirmDialog, promptDialog, switchEl, rangeEl } from "./ui";
+import { toast, confirmDialog, promptDialog, switchEl, rangeEl } from "./ui";
 import { CallManager } from "./call";
 import type { CallLine } from "./call";
 import { renderMarkdown, escapeHtml } from "./render";
@@ -19,50 +15,49 @@ import type { Artifact } from "./render";
 
 const F = "```";
 
-/* ================= ТЗ / документація ================= */
-const DOC_MD = `# Технічне завдання: AI-чат інтерфейс «Studio»
+const DOC_MD = `# Technical Specification: "Studio" AI Chat Interface
 
-Візуал — студія в стилі Qwen: три колонки, стриманий фокус на контенті. Дзвінки — за зразком Telegram: повноекранний виклик, хвилі, таймер, barge-in.
+Visual language — a Qwen-style studio: three columns, calm focus on content. Calls follow the Telegram pattern: full-screen call, waves, timer, barge-in.
 
-## 1. Жорсткі обмеження
+## 1. Hard constraints
 
-- **Frontend:** чистий HTML5 + CSS3 + Vanilla JS (ES Modules). Без React/Vue/Angular у логіці застосунку. Dropdown, модалки, слайдери, тости — кастомні класи.
-- **Backend:** лише TypeScript на Edge (Cloudflare Workers). Без Node.js/Express.
-- **Дані клієнта:** IndexedDB через власну обгортку (модуль \`db.ts\`).
+- **Frontend:** pure HTML5 + CSS3 + Vanilla JS (ES Modules). No React/Vue/Angular in app logic. Dropdowns, modals, sliders, toasts are custom classes.
+- **Backend:** TypeScript on Edge (Cloudflare Workers) only. No Node.js/Express.
+- **Client data:** IndexedDB through a custom wrapper (module \`db.ts\`).
 
-## 2. Структура файлів
+## 2. File layout
 
 ${F}
 src/
-├─ main.ts        # bootstrap (монтування)
-├─ app.ts         # оркестрація: store, router, сайдбар, вʼюхи
-├─ store.ts       # State-менеджер на Proxy + Observer
-├─ router.ts      # власний hash-роутер (#/c/:id, #/settings, #/docs)
-├─ db.ts          # кастомна обгортка IndexedDB
-├─ api.ts         # EdgeClient + власний SSE-парсер + веб-пошук
-├─ engine.ts      # офлайн-рушій відповідей + ланцюжок думок
-├─ chat.ts        # class ChatEngine: стримінг, артефакти, композер
-├─ call.ts        # class CallManager: дзвінки, barge-in, аватар
-├─ render.ts      # Markdown + highlight.js + блоки коду
-├─ ui.ts          # модалки, dropdown, тости, тумблери, слайдери
-├─ icons.ts       # всі іконки — кастомні SVG
-└─ index.css      # теми light/dark на CSS-змінних
+├─ main.ts        # bootstrap (mount)
+├─ app.ts         # orchestration: store, router, sidebar, views
+├─ store.ts       # Proxy + Observer state manager
+├─ router.ts      # custom hash router (#/c/:id, #/settings, #/docs)
+├─ db.ts          # custom IndexedDB wrapper
+├─ api.ts         # EdgeClient + hand-rolled SSE parser + web search
+├─ engine.ts      # offline reply engine + chain of thought
+├─ chat.ts        # class ChatEngine: streaming, artifacts, composer
+├─ call.ts        # class CallManager: calls, barge-in, avatar
+├─ render.ts      # Markdown + highlight.js + code blocks
+├─ ui.ts          # modals, dropdowns, toasts, switches, sliders
+├─ icons.ts       # every icon is a custom SVG
+└─ index.css      # light/dark themes on CSS variables
 
 edge/             # Cloudflare Worker (TypeScript)
-├─ src/index.ts   # routes + агрегація моделей + KV-кеш
+├─ src/index.ts   # routes + model aggregation + KV cache
 ├─ src/router.ts  # class EdgeRouter
-├─ src/providers.ts # адаптери вендорів (OpenAI/Anthropic/Google/…)
-├─ wrangler.toml  # KV-байндінги, compatibility_date
+├─ src/providers.ts # vendor adapters (OpenAI/Anthropic/Google/…)
+├─ wrangler.toml  # KV binding, compatibility_date
 └─ tsconfig.json
 ${F}
 
-## 3. Ключові класи
+## 3. Key classes
 
-### \`class Store\` — стан на Proxy
+### \`class Store\` — Proxy-based state
 ${F}ts
 const store = new Store<AppState>({ chats: [], settings, … });
-store.on(path => render(path));      // Observer
-store.state.modelId = "gemini-2.5-flash"; // → emit('modelId')
+store.on(path => render(path));            // Observer
+store.state.modelId = "gemini-2.5-flash";  // → emit('modelId')
 store.setDeep('settings', s => ({ ...s, theme: 'dark' }));
 ${F}
 
@@ -70,61 +65,59 @@ ${F}
 ${F}ts
 const r = new EdgeRouter();
 r.get('/api/health', () => json({ ok: true }));
-r.get('/api/models', handleModels);   // агрегація + KV
-r.post('/api/chat', handleChat);      // проксі зі стримінгом
+r.get('/api/models', handleModels);   // aggregation + KV
+r.post('/api/chat', handleChat);      // streaming proxy
 export default { fetch: (req, env, ctx) => r.handle(req, env, ctx) };
 ${F}
 
-### \`class ChatEngine\` — стримінг і артефакти
+### \`class ChatEngine\` — streaming and artifacts
 ${F}ts
 const gen = client.chat(model, messages, { keys, signal, deep, webContext });
 for await (const ev of gen) {
   if (ev.type === 'thinking') showThought(ev.text); // Deep Thinking
   if (ev.type === 'delta')    appendMarkdown(ev.text);
 }
-msg.arts = extractArtifacts(markdown); // → права панель
+msg.arts = extractArtifacts(markdown); // → right panel
 ${F}
 
-### \`class CallManager\` — дзвінки як у Telegram
+### \`class CallManager\` — Telegram-style calls
 ${F}
-MediaRecorder/Mic → Web Speech (STT) → Edge API → TTS
-                 ↘ Web Audio: AnalyserNode → хвилі + barge-in
-Відео: <video> (локальне) + Canvas-аватар ШІ (lip-sync за TTS)
+Mic → Web Speech (STT) → Edge API → TTS
+      ↘ Web Audio: AnalyserNode → waves + barge-in
+Video: <video> (local) + Canvas AI avatar (TTS lip-sync)
 ${F}
 
-## 4. Схема Edge-функцій
+## 4. Edge function map
 
-| Ендпоїнт | Метод | Дія |
+| Endpoint | Method | Behavior |
 |---|---|---|
-| \`/api/health\` | GET | перевІрка життєздатності воркера |
-| \`/api/models\` | GET | агрегує \`/v1/models\` усіх провайдерів (OpenAI, Anthropic, Google, Mistral, Groq, Ollama), кешує у KV на 1 год, віддає єдиний JSON |
-| \`/api/chat\` | POST | приймає \`{provider, model, messages, stream, deep}\`, підставляє ключі з ENV, маршрутизує до вендора, нормалізує SSE (\`delta\` / \`thinking\`) |
+| \`/api/health\` | GET | worker liveness probe |
+| \`/api/models\` | GET | aggregates \`/v1/models\` of every provider (OpenAI, Anthropic, Google, Mistral, Groq, Ollama), caches in KV for 1 hour, returns a single JSON |
+| \`/api/chat\` | POST | accepts \`{provider, model, messages, stream, deep}\`, injects keys from ENV, routes to the vendor, normalizes SSE (\`delta\` / \`thinking\`) |
 
-Ключі живуть **лише в ENV воркера** — клієнт їх не бачить. Без воркера застосунок автоматично переходить у «прямий режим»: ключі з IndexedDB, виклики вендорів з браузера, або офлайн-рушій.
+Keys live **only in the worker's ENV** — the client never sees them. Without a worker the app automatically falls back to "direct mode": keys from IndexedDB, vendor calls from the browser, or the offline engine.
 
-## 5. Збереження даних
+## 5. Data storage
 
-- **IndexedDB** (обгортка \`db.ts\`): розмови, налаштування, кеш моделей, обрана модель.
-- **Edge KV**: агрегований список моделей (TTL 3600 c).
-- **Edge D1 / KV (опційно)**: мульти-тенантне зберігання ключів користувачів.
+- **IndexedDB** (wrapper \`db.ts\`): conversations, settings, model cache, selected model.
+- **Edge KV**: aggregated model list (TTL 3600 s).
+- **Edge D1 / KV (optional)**: multi-tenant storage of user keys.
 
-## 6. Що вже працює в цьому білді
+## 6. What works in this build
 
-- Три колонки: історія + налаштування / чат / артефакти з live-превʼю HTML у sandbox-iframe
-- Кастомний dropdown вибору моделі з пошуком і групуванням за провайдерами
-- Тогли «Веб-пошук» (реальний пошук Wikipedia API + джерела під відповіддю) та «Глибоке мислення» (ланцюжок думок: локальні кроки або \`reasoning_content\` DeepSeek R1 / Gemini thinking)
-- Власний SSE-парсер, стримінг посимвольно, кнопка «Зупинити»
-- Дзвінки: голос і відео, хвилі Web Audio, субтитри, barge-in, стенограма в чат
-- Голосове введення в композер, зображення (файл / вставка / drag-and-drop), lightbox
-- Теми light/dark на CSS-змінних, кастомний скролбар, повний адаптив
+- Three columns: history + settings / chat / artifacts with live HTML preview in a sandboxed iframe
+- Custom model dropdown with search and provider grouping
+- "Web search" (real Wikipedia API lookups + sources under the reply) and "Deep thinking" (chain of thought: local steps or DeepSeek R1 \`reasoning_content\` / Gemini thinking) toggles
+- Hand-rolled SSE parser, character-level streaming, Stop button
+- Calls: voice and video, Web Audio waves, captions, barge-in, transcript in chat
+- Composer voice input, images (file / paste / drag-and-drop), lightbox
+- Light/dark themes on CSS variables, custom scrollbars, fully responsive
 `;
 
-/* ================= монтаж ================= */
 export async function createStudio(root: HTMLElement): Promise<() => void> {
   const db = new IDB("ai-studio-db", ["chats", "settings", "models", "misc"]);
   const unsubs: (() => void)[] = [];
 
-  // --- завантаження персисту ---
   const savedChats = (await db.get<ChatDoc[]>("chats", "all")) ?? [];
   const savedSettings = (await db.get<Settings>("settings", "app")) ?? null;
   const savedModel = (await db.get<string>("misc", "modelId")) ?? "studio-local";
@@ -132,9 +125,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
 
   const settings: Settings = { ...DEFAULT_SETTINGS, ...(savedSettings ?? {}) };
   let chats = savedChats;
-  if (!chats.length) {
-    chats = [makeChat()];
-  }
+  if (!chats.length) chats = [makeChat()];
 
   const cachedModels = (savedModels?.models ?? []).filter((m) => m.provider !== "local");
   const mergedModels = (() => {
@@ -161,7 +152,6 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   const client = new EdgeClient(() => store.state.settings.edgeUrl);
   const persist = () => void db.set("chats", "all", store.state.chats);
 
-  // --- shell ---
   root.innerHTML = `
     <div class="app-shell">
       <div class="sidebar-scrim"></div>
@@ -169,19 +159,19 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         <div class="side-top">
           <a class="brand" href="#/">
             <span class="brand-mark">${ico("logo")}</span>
-            <span class="brand-text">Studio<b>AI-чат студія</b></span>
+            <span class="brand-text">Studio<b>AI chat studio</b></span>
           </a>
-          <button class="btn btn-primary btn-new">${ico("plus")} Нова розмова</button>
-          <div class="side-search">${ico("search")}<input placeholder="Пошук розмов…" /></div>
+          <button class="btn btn-primary btn-new">${ico("plus")} New chat</button>
+          <div class="side-search">${ico("search")}<input placeholder="Search chats…" /></div>
         </div>
-        <nav class="chat-list" aria-label="Історія розмов"></nav>
+        <nav class="chat-list" aria-label="Chat history"></nav>
         <div class="side-nav">
-          <a class="nav-item" href="#/settings" data-nav="settings">${ico("gear")}<span>Налаштування</span></a>
-          <a class="nav-item" href="#/docs" data-nav="docs">${ico("doc")}<span>Архітектура і ТЗ</span></a>
+          <a class="nav-item" href="#/settings" data-nav="settings">${ico("gear")}<span>Settings</span></a>
+          <a class="nav-item" href="#/docs" data-nav="docs">${ico("doc")}<span>Architecture & Spec</span></a>
         </div>
         <div class="side-bottom">
-          <button class="theme-btn" title="Перемкнути тему">${ico(settings.theme === "dark" ? "sun" : "moon")}<span>Тема</span></button>
-          <div class="user-chip"><span class="user-dot"></span>Гість<span class="chip-note">${ico("db")} локально</span></div>
+          <button class="theme-btn" title="Toggle theme">${ico(settings.theme === "dark" ? "sun" : "moon")}<span>Theme</span></button>
+          <div class="user-chip"><span class="user-dot"></span>Guest<span class="chip-note">${ico("db")} local</span></div>
         </div>
       </aside>
       <main class="main-col">
@@ -191,18 +181,16 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       </main>
       <aside class="art-panel">
         <div class="art-head">
-          <h3>${ico("layers")} Артефакти <span class="art-count">0</span></h3>
-          <button class="icon-btn art-close" title="Закрити панель">${ico("close")}</button>
+          <h3>${ico("layers")} Artifacts <span class="art-count">0</span></h3>
+          <button class="icon-btn art-close" title="Close panel">${ico("close")}</button>
         </div>
         <div class="art-body"></div>
       </aside>
     </div>`;
 
   const shell = root.querySelector(".app-shell") as HTMLElement;
-  const sidebar = root.querySelector(".sidebar") as HTMLElement;
   const chatListEl = root.querySelector(".chat-list") as HTMLElement;
   const searchInput = root.querySelector(".side-search input") as HTMLInputElement;
-  const artPanel = root.querySelector(".art-panel") as HTMLElement;
   const artBody = root.querySelector(".art-body") as HTMLElement;
   const artCount = root.querySelector(".art-count") as HTMLElement;
   const viewEls = {
@@ -213,10 +201,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
 
   function makeChat(): ChatDoc {
     const now = Date.now();
-    return { id: uid(), title: "Нова розмова", createdAt: now, updatedAt: now, msgs: [] };
+    return { id: uid(), title: "New chat", createdAt: now, updatedAt: now, msgs: [] };
   }
 
-  /* ---------- ChatEngine (один на застосунок) ---------- */
   const router = new Router();
   let callMgr: CallManager | null = null;
   const engine = new ChatEngine(viewEls.chat, {
@@ -238,13 +225,13 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
           let out = "";
           try {
             for await (const ev of client.chat(model, [
-              { role: "system", content: "Відповідай українською, стисло (до 2 речень) — це голосовий дзвінок." },
+              { role: "system", content: "Answer in English, briefly (up to 2 sentences) — this is a voice call." },
               { role: "user", content: text },
             ], { keys: store.state.settings.keys, signal: ac.signal, deep: false })) {
               if (ev.type === "delta") out += ev.text;
               else if (ev.type === "error") throw new Error(ev.message);
             }
-          } catch (e: any) {
+          } catch {
             return localChat(text).text;
           }
           return out || localChat(text).text;
@@ -256,7 +243,6 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     },
   });
 
-  /* ---------- сайдбар ---------- */
   function renderChatList(filter = ""): void {
     const term = filter.trim().toLowerCase();
     const items = store.state.chats
@@ -264,7 +250,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       .sort((a, b) => b.updatedAt - a.updatedAt);
     chatListEl.innerHTML = "";
     if (!items.length) {
-      chatListEl.innerHTML = `<div class="list-empty">${ico("search")} Нічого не знайдено</div>`;
+      chatListEl.innerHTML = `<div class="list-empty">${ico("search")} Nothing found</div>`;
       return;
     }
     let lastGroup = "";
@@ -279,11 +265,11 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         <div class="chat-item${active}" data-id="${c.id}">
           <a class="ci-main" href="#/c/${c.id}">
             <span class="ci-title">${escapeHtml(c.title)}</span>
-            <span class="ci-time">${new Date(c.updatedAt).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })}</span>
+            <span class="ci-time">${new Date(c.updatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
           </a>
           <span class="ci-actions">
-            <button data-ciact="rename" title="Перейменувати">${ico("edit")}</button>
-            <button data-ciact="del" title="Видалити">${ico("trash")}</button>
+            <button data-ciact="rename" title="Rename">${ico("edit")}</button>
+            <button data-ciact="del" title="Delete">${ico("trash")}</button>
           </span>
         </div>`);
     }
@@ -293,9 +279,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const d = new Date(ts);
     const today = new Date();
     const yest = new Date(Date.now() - 864e5);
-    if (d.toDateString() === today.toDateString()) return "Сьогодні";
-    if (d.toDateString() === yest.toDateString()) return "Вчора";
-    return d.toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
+    if (d.toDateString() === today.toDateString()) return "Today";
+    if (d.toDateString() === yest.toDateString()) return "Yesterday";
+    return d.toLocaleDateString("en-US", { day: "numeric", month: "long" });
   }
 
   chatListEl.addEventListener("click", async (e) => {
@@ -309,17 +295,17 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       const chat = store.state.chats.find((c) => c.id === id);
       if (!chat) return;
       if (act.getAttribute("data-ciact") === "rename") {
-        const name = await promptDialog({ title: "Перейменувати розмову", label: "Назва", value: chat.title });
+        const name = await promptDialog({ title: "Rename chat", label: "Title", value: chat.title });
         if (name) { chat.title = name; persist(); renderChatList(searchInput.value); }
       } else {
-        const ok = await confirmDialog({ title: "Видалити розмову?", text: `«${escapeHtml(chat.title)}» буде видалено безповоротно.`, okText: "Видалити", danger: true });
+        const ok = await confirmDialog({ title: "Delete chat?", text: `"${escapeHtml(chat.title)}" will be deleted permanently.`, okText: "Delete", danger: true });
         if (!ok) return;
         store.state.chats = store.state.chats.filter((c) => c.id !== id);
         if (!store.state.chats.length) store.state.chats = [makeChat()];
         persist();
         if (store.state.activeId === id) router.navigate(`#/c/${store.state.chats[0].id}`);
         else renderChatList(searchInput.value);
-        toast("Розмову видалено", "ok");
+        toast("Chat deleted", "ok");
       }
       return;
     }
@@ -340,13 +326,12 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   root.querySelector(".sidebar-scrim")!.addEventListener("click", () => { store.state.sidebarOpen = false; });
   root.querySelector(".art-close")!.addEventListener("click", () => { store.state.artOpen = false; });
 
-  /* ---------- реактивність ---------- */
   unsubs.push(store.watch(["chats", "activeId", "view"], () => renderChatList(searchInput.value)));
   unsubs.push(store.watch(["settings"], () => {
     void db.set("settings", "app", store.state.settings);
     applyTheme();
     const tb = root.querySelector(".theme-btn")!;
-    tb.innerHTML = `${ico(store.state.settings.theme === "dark" ? "sun" : "moon")}<span>Тема</span>`;
+    tb.innerHTML = `${ico(store.state.settings.theme === "dark" ? "sun" : "moon")}<span>Theme</span>`;
   }));
   unsubs.push(store.watch(["sidebarOpen"], () => shell.classList.toggle("side-open", store.state.sidebarOpen)));
   unsubs.push(store.watch(["artOpen"], () => shell.classList.toggle("art-open", store.state.artOpen)));
@@ -357,7 +342,6 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   }
   applyTheme();
 
-  /* ---------- артефакти ---------- */
   let artifacts: Artifact[] = [];
   let artSel = "";
   function refreshArtifacts(): void {
@@ -374,7 +358,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     if (!artifacts.length) {
       artBody.innerHTML = `
         <div class="art-list"></div>
-        <div class="art-empty">${ico("layers")}<b>Поки порожньо</b><span>Попросіть модель написати код або HTML-сторінку — артефакти з'являться тут із live-превʼю.</span></div>`;
+        <div class="art-empty">${ico("layers")}<b>Nothing here yet</b><span>Ask the model to write code or an HTML page — artifacts will appear here with a live preview.</span></div>`;
       return;
     }
     if (!artSel || !artifacts.some((a) => a.id === artSel)) artSel = artifacts[0].id;
@@ -382,18 +366,18 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const isHtml = a.lang === "html";
     artBody.innerHTML = `
       <div class="art-list">${artifacts.map((x) => `
-        <button class="art-item${x.id === artSel ? " active" : ""}" data-art="${x.id}">${ico(x.lang === "html" ? "globe" : "code")}<span class="ai-main"><b>${escapeHtml(x.title)}</b><small>${x.lang} · ${x.code.split("\n").length} рядк.</small></span></button>`).join("")}
+        <button class="art-item${x.id === artSel ? " active" : ""}" data-art="${x.id}">${ico(x.lang === "html" ? "globe" : "code")}<span class="ai-main"><b>${escapeHtml(x.title)}</b><small>${x.lang} · ${x.code.split("\n").length} lines</small></span></button>`).join("")}
       </div>
       <div class="art-view">
         <div class="art-tabs">
-          <button class="art-tab on" data-tab="code">${ico("code")} Код</button>
-          ${isHtml ? `<button class="art-tab" data-tab="prev">${ico("external")} Превʼю</button>` : ""}
+          <button class="art-tab on" data-tab="code">${ico("code")} Code</button>
+          ${isHtml ? `<button class="art-tab" data-tab="prev">${ico("external")} Preview</button>` : ""}
           <span class="art-spacer"></span>
-          <button class="icon-btn" data-artact="copy" title="Копіювати">${ico("copy")}</button>
-          <button class="icon-btn" data-artact="dl" title="Завантажити">${ico("download")}</button>
+          <button class="icon-btn" data-artact="copy" title="Copy">${ico("copy")}</button>
+          <button class="icon-btn" data-artact="dl" title="Download">${ico("download")}</button>
         </div>
         <div class="art-code" data-pane="code"><div class="cb-body"><div class="cb-num">${a.code.split("\n").map((_, i) => i + 1).join("\n")}</div><pre><code>${escapeHtml(a.code)}</code></pre></div></div>
-        ${isHtml ? `<iframe class="art-preview" data-pane="prev" hidden sandbox="allow-scripts" title="Превʼю"></iframe>` : ""}
+        ${isHtml ? `<iframe class="art-preview" data-pane="prev" hidden sandbox="allow-scripts" title="Preview"></iframe>` : ""}
       </div>`;
   }
 
@@ -422,7 +406,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     if (act) {
       const a = artifacts.find((x) => x.id === artSel)!;
       if (act.getAttribute("data-artact") === "copy") {
-        void navigator.clipboard.writeText(a.code).then(() => toast("Код скопійовано", "ok"));
+        void navigator.clipboard.writeText(a.code).then(() => toast("Code copied", "ok"));
       } else {
         const blob = new Blob([a.code], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
@@ -435,10 +419,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     }
   });
 
-  /* ---------- роутер і вʼюхи ---------- */
   function showView(name: "chat" | "settings" | "docs"): void {
     store.state.view = name;
-    store.state.sidebarOpen = false; // на мобільних drawer зачиняється
+    store.state.sidebarOpen = false;
     for (const [k, v] of Object.entries(viewEls)) v.hidden = k !== name;
     root.querySelectorAll(".nav-item").forEach((n) => n.classList.toggle("active", n.getAttribute("data-nav") === name));
   }
@@ -453,41 +436,38 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       refreshArtifacts();
       document.title = `${chat.title} — AI Studio`;
     })
-    .add("#/settings", () => { showView("settings"); renderSettings(); document.title = "Налаштування — AI Studio"; })
-    .add("#/docs", () => { showView("docs"); document.title = "Архітектура і ТЗ — AI Studio"; })
+    .add("#/settings", () => { showView("settings"); renderSettings(); document.title = "Settings — AI Studio"; })
+    .add("#/docs", () => { showView("docs"); document.title = "Architecture & Spec — AI Studio"; })
     .setFallback(() => router.navigate(`#/c/${store.state.chats[0].id}`));
 
-  /* ---------- сторінка ТЗ ---------- */
-  viewEls.docs.innerHTML = `<div class="doc-view"><div class="head-row"><button class="icon-btn view-burger" title="Меню">${ico("menu")}</button><span class="head-row-title">Архітектура і ТЗ</span></div><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
+  viewEls.docs.innerHTML = `<div class="doc-view"><div class="head-row"><button class="icon-btn view-burger" title="Menu">${ico("menu")}</button><span class="head-row-title">Architecture & Spec</span></div><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
   root.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).closest(".view-burger")) store.state.sidebarOpen = true;
   });
 
-  /* ---------- делегування копіювання коду (доки/налаштування) ---------- */
   root.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest(".cb-copy") as HTMLElement | null;
     if (!btn) return;
     const code = btn.closest(".codeblock")?.querySelector("pre code")?.textContent ?? "";
     void navigator.clipboard.writeText(code).then(() => {
       btn.classList.add("ok");
-      btn.textContent = "скопійовано";
-      setTimeout(() => { btn.classList.remove("ok"); btn.textContent = "копіювати"; }, 1400);
+      btn.textContent = "copied";
+      setTimeout(() => { btn.classList.remove("ok"); btn.textContent = "copy"; }, 1400);
     });
   });
 
-  /* ---------- налаштування ---------- */
   function renderSettings(): void {
     const host = viewEls.settings;
     const s = () => store.state.settings;
     const set = (patch: Partial<Settings>) => store.setDeep("settings", (x) => ({ ...x, ...patch }));
     host.innerHTML = `
       <div class="set-view">
-        <header class="set-head"><div class="head-row"><button class="icon-btn view-burger" title="Меню">${ico("menu")}</button><h2>${ico("gear")} Налаштування</h2></div><p>Edge-проксі, API-ключі, голос, інтерфейс і дані</p></header>
+        <header class="set-head"><div class="head-row"><button class="icon-btn view-burger" title="Menu">${ico("menu")}</button><h2>${ico("gear")} Settings</h2></div><p>Edge proxy, API keys, voice, interface and data</p></header>
         <div class="set-tabs">
-          <button class="set-tab on" data-tab="api">${ico("key")} Моделі та API</button>
-          <button class="set-tab" data-tab="voice">${ico("mic")} Голос і дзвінки</button>
-          <button class="set-tab" data-tab="ui">${ico("sun")} Інтерфейс</button>
-          <button class="set-tab" data-tab="data">${ico("db")} Дані</button>
+          <button class="set-tab on" data-tab="api">${ico("key")} Models & API</button>
+          <button class="set-tab" data-tab="voice">${ico("mic")} Voice & Calls</button>
+          <button class="set-tab" data-tab="ui">${ico("sun")} Interface</button>
+          <button class="set-tab" data-tab="data">${ico("db")} Data</button>
         </div>
         <div class="set-panel" data-panel="api"></div>
         <div class="set-panel" data-panel="voice" hidden></div>
@@ -503,46 +483,45 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       })
     );
 
-    /* --- API --- */
     const api = host.querySelector('[data-panel="api"]')!;
     api.innerHTML = `
       <section class="set-card">
-        <h3>Edge-проксі (Cloudflare Workers)</h3>
-        <p class="set-hint">Вкажіть URL задеплоєного воркера з <code>edge/</code> — ключі лишаться на сервері. Порожнє поле = прямий режим із ключами нижче.</p>
+        <h3>Edge proxy (Cloudflare Workers)</h3>
+        <p class="set-hint">Enter the URL of the worker deployed from <code>edge/</code> — keys stay on the server. Empty field = direct mode with the keys below.</p>
         <div class="edge-row">
           <input class="text-input" id="edge-url" placeholder="https://ai-studio-edge.example.workers.dev" value="${escapeHtml(s().edgeUrl)}" />
-          <button class="btn btn-ghost" id="edge-test">${ico("bolt")} Перевірити</button>
+          <button class="btn btn-ghost" id="edge-test">${ico("bolt")} Check</button>
         </div>
         <div class="edge-status" id="edge-status"></div>
       </section>
       <section class="set-card">
-        <h3>API-ключі провайдерів</h3>
-        <p class="set-hint">Зберігаються лише у вашому браузері (IndexedDB). Без ключів працює офлайн-рушій.</p>
+        <h3>Provider API keys</h3>
+        <p class="set-hint">Stored only in your browser (IndexedDB). Without keys the offline engine works.</p>
         <div class="keys-grid">${PROVIDERS.map((p) => `
           <div class="key-row">
-            <label>${escapeHtml(p.name)}<a href="${p.keyUrl}" target="_blank" rel="noopener">отримати ключ ${ico("external")}</a></label>
+            <label>${escapeHtml(p.name)}<a href="${p.keyUrl}" target="_blank" rel="noopener">get key ${ico("external")}</a></label>
             <div class="key-input">
               <input type="password" data-key="${p.id}" placeholder="${p.keyEnv}" value="${escapeHtml(s().keys[p.keyEnv] ?? "")}" />
-              <button class="icon-btn eye-btn" title="Показати/сховати">${ico("key")}</button>
+              <button class="icon-btn eye-btn" title="Show/hide">${ico("key")}</button>
             </div>
           </div>`).join("")}
         </div>
       </section>
       <section class="set-card">
-        <h3>Каталог моделей</h3>
-        <p class="set-hint">Агрегація <code>/v1/models</code> усіх провайдерів (через Edge або напряму). Кешується в IndexedDB.</p>
+        <h3>Model catalog</h3>
+        <p class="set-hint">Aggregation of <code>/v1/models</code> across all providers (via Edge or directly). Cached in IndexedDB.</p>
         <div class="edge-row">
-          <button class="btn btn-primary" id="refresh-models">${ico("refresh")} Оновити список моделей</button>
-          <span class="models-count">У каталозі: <b>${store.state.models.length}</b></span>
+          <button class="btn btn-primary" id="refresh-models">${ico("refresh")} Refresh model list</button>
+          <span class="models-count">In catalog: <b>${store.state.models.length}</b></span>
         </div>
       </section>`;
     api.querySelector("#edge-url")!.addEventListener("change", (e) => set({ edgeUrl: (e.target as HTMLInputElement).value.trim() }));
     api.querySelector("#edge-test")!.addEventListener("click", async () => {
       const st = api.querySelector("#edge-status")!;
-      st.textContent = "Перевіряю…";
+      st.textContent = "Checking…";
       st.className = "edge-status";
       const ok = await client.health();
-      st.textContent = ok ? "Воркер відповідає — ключі на сервері, прямі ключі не потрібні." : "Немає з'єднання. Перевірте URL і CORS воркера.";
+      st.textContent = ok ? "Worker is up — keys live on the server, direct keys not needed." : "No connection. Check the URL and worker CORS.";
       st.classList.add(ok ? "ok" : "bad");
     });
     api.querySelectorAll("input[data-key]").forEach((inp) => {
@@ -550,7 +529,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         const p = PROVIDERS.find((x) => x.id === inp.getAttribute("data-key"))!;
         const keys = { ...s().keys, [p.keyEnv]: (inp as HTMLInputElement).value.trim() };
         set({ keys });
-        toast(`Ключ ${p.name} збережено локально`, "ok");
+        toast(`${p.name} key saved locally`, "ok");
       });
     });
     api.querySelectorAll(".eye-btn").forEach((b) =>
@@ -567,40 +546,39 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
         store.state.models = models;
         void db.set("models", "list", { ts: Date.now(), models });
         api.querySelector(".models-count b")!.textContent = String(models.length);
-        toast(`Моделей знайдено: ${models.length}`, "ok");
+        toast(`Models found: ${models.length}`, "ok");
       } catch {
-        toast("Не вдалося оновити каталог", "err");
+        toast("Failed to refresh the catalog", "err");
       } finally {
         btn.disabled = false;
       }
     });
 
-    /* --- Голос --- */
     const voice = host.querySelector('[data-panel="voice"]')!;
     voice.innerHTML = `
       <section class="set-card">
-        <h3>Розпізнавання мовлення (STT)</h3>
-        <div class="field"><span class="field-label">Мова диктовки та дзвінків</span>
+        <h3>Speech recognition (STT)</h3>
+        <div class="field"><span class="field-label">Dictation & call language</span>
           <select class="text-input" id="stt-lang">
-            ${["uk-UA", "en-US", "pl-PL", "de-DE"].map((l) => `<option value="${l}"${s().sttLang === l ? " selected" : ""}>${l}</option>`).join("")}
+            ${["en-US", "uk-UA", "pl-PL", "de-DE"].map((l) => `<option value="${l}"${s().sttLang === l ? " selected" : ""}>${l}</option>`).join("")}
           </select>
         </div>
       </section>
       <section class="set-card">
-        <h3>Синтез мовлення (TTS)</h3>
-        <div class="field"><span class="field-label">Голос</span><select class="text-input" id="tts-voice"><option value="">Системний</option></select></div>
-        <div class="field"><span class="field-label">Темп мовлення</span><div id="tts-rate"></div></div>
-        <div class="field"><span class="field-label">Перевірка</span><button class="btn btn-ghost" id="tts-test">${ico("volume")} Озвучити тест</button></div>
+        <h3>Speech synthesis (TTS)</h3>
+        <div class="field"><span class="field-label">Voice</span><select class="text-input" id="tts-voice"><option value="">System default</option></select></div>
+        <div class="field"><span class="field-label">Speaking rate</span><div id="tts-rate"></div></div>
+        <div class="field"><span class="field-label">Check</span><button class="btn btn-ghost" id="tts-test">${ico("volume")} Test voice</button></div>
       </section>
       <section class="set-card">
-        <h3>Дзвінки</h3>
-        <div class="field"><span class="field-label">Barge-in — переривати ШІ своїм голосом</span><span id="barge"></span></div>
-        <p class="set-hint">Під час мовлення асистента аналізується амплітуда мікрофона; гучна репліка зупиняє синтез.</p>
+        <h3>Calls</h3>
+        <div class="field"><span class="field-label">Barge-in — interrupt the AI with your voice</span><span id="barge"></span></div>
+        <p class="set-hint">While the assistant speaks, microphone amplitude is analyzed; a loud phrase stops the synthesis.</p>
       </section>`;
     const voiceSel = voice.querySelector("#tts-voice") as HTMLSelectElement;
     const fillVoices = () => {
       const cur = s().ttsVoice;
-      voiceSel.innerHTML = `<option value="">Системний</option>` +
+      voiceSel.innerHTML = `<option value="">System default</option>` +
         window.speechSynthesis.getVoices().map((v) => `<option value="${escapeHtml(v.name)}"${v.name === cur ? " selected" : ""}>${escapeHtml(v.name)} (${v.lang})</option>`).join("");
     };
     fillVoices();
@@ -610,36 +588,35 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     voice.querySelector("#tts-rate")!.appendChild(rangeEl({ min: 0.6, max: 1.6, step: 0.05, value: s().ttsRate, fmt: (v) => `${v.toFixed(2)}×`, onChange: (v) => set({ ttsRate: v }) }));
     voice.querySelector("#barge")!.appendChild(switchEl(s().bargeIn, (v) => set({ bargeIn: v })));
     voice.querySelector("#tts-test")!.addEventListener("click", () => {
-      const u = new SpeechSynthesisUtterance("Привіт! Це тест синтезу мовлення. Я готовий до дзвінка.");
-      u.lang = "uk-UA";
+      const u = new SpeechSynthesisUtterance("Hello! This is a speech synthesis test. I'm ready for a call.");
+      u.lang = "en-US";
       u.rate = s().ttsRate;
-      const v = window.speechSynthesis.getVoices().find((x) => x.name === s().ttsVoice) ?? window.speechSynthesis.getVoices().find((x) => x.lang.startsWith("uk"));
+      const v = window.speechSynthesis.getVoices().find((x) => x.name === s().ttsVoice) ?? window.speechSynthesis.getVoices().find((x) => x.lang.startsWith("en"));
       if (v) u.voice = v;
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     });
 
-    /* --- Інтерфейс --- */
     const uiP = host.querySelector('[data-panel="ui"]')!;
     uiP.innerHTML = `
       <section class="set-card">
-        <h3>Тема</h3>
+        <h3>Theme</h3>
         <div class="theme-cards">
-          <button class="theme-card${s().theme === "light" ? " on" : ""}" data-th="light"><span class="tc-prev tc-light"></span>Світла</button>
-          <button class="theme-card${s().theme === "dark" ? " on" : ""}" data-th="dark"><span class="tc-prev tc-dark"></span>Темна</button>
+          <button class="theme-card${s().theme === "light" ? " on" : ""}" data-th="light"><span class="tc-prev tc-light"></span>Light</button>
+          <button class="theme-card${s().theme === "dark" ? " on" : ""}" data-th="dark"><span class="tc-prev tc-dark"></span>Dark</button>
         </div>
       </section>
       <section class="set-card">
-        <h3>Читання</h3>
-        <div class="field"><span class="field-label">Розмір тексту повідомлень</span><div id="fs"></div></div>
-        <div class="field"><span class="field-label">Показувати час повідомлень</span><span id="sw-time"></span></div>
+        <h3>Reading</h3>
+        <div class="field"><span class="field-label">Message text size</span><div id="fs"></div></div>
+        <div class="field"><span class="field-label">Show message timestamps</span><span id="sw-time"></span></div>
       </section>
       <section class="set-card">
-        <h3>Композер і стримінг</h3>
-        <div class="field"><span class="field-label">Enter надсилає повідомлення</span><span id="sw-enter"></span></div>
-        <div class="field"><span class="field-label">Поступовий друк (офлайн-рушій)</span><span id="sw-stream"></span></div>
-        <div class="field"><span class="field-label">Звуки сповіщень</span><span id="sw-sound"></span></div>
-        <div class="field"><span class="field-label">Гучність</span><div id="vol"></div></div>
+        <h3>Composer & streaming</h3>
+        <div class="field"><span class="field-label">Enter sends the message</span><span id="sw-enter"></span></div>
+        <div class="field"><span class="field-label">Gradual typing (offline engine)</span><span id="sw-stream"></span></div>
+        <div class="field"><span class="field-label">Notification sounds</span><span id="sw-sound"></span></div>
+        <div class="field"><span class="field-label">Volume</span><div id="vol"></div></div>
       </section>`;
     uiP.querySelectorAll(".theme-card").forEach((c) =>
       c.addEventListener("click", () => {
@@ -654,26 +631,25 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     uiP.querySelector("#sw-sound")!.appendChild(switchEl(s().sound, (v) => set({ sound: v })));
     uiP.querySelector("#vol")!.appendChild(rangeEl({ min: 0, max: 1, step: 0.05, value: s().volume, fmt: (v) => `${Math.round(v * 100)}%`, onChange: (v) => set({ volume: v }) }));
 
-    /* --- Дані --- */
     const dataP = host.querySelector('[data-panel="data"]')!;
     const msgsTotal = store.state.chats.reduce((n, c) => n + c.msgs.length, 0);
     const kb = Math.max(1, Math.round(JSON.stringify(store.state.chats).length / 1024));
     dataP.innerHTML = `
       <section class="set-card">
-        <h3>Локальне сховище (IndexedDB)</h3>
+        <h3>Local storage (IndexedDB)</h3>
         <div class="stat-grid">
-          <div class="stat"><b>${store.state.chats.length}</b><span>розмов</span></div>
-          <div class="stat"><b>${msgsTotal}</b><span>повідомлень</span></div>
-          <div class="stat"><b>${kb} КБ</b><span>даних</span></div>
-          <div class="stat"><b>${store.state.models.length}</b><span>моделей у каталозі</span></div>
+          <div class="stat"><b>${store.state.chats.length}</b><span>chats</span></div>
+          <div class="stat"><b>${msgsTotal}</b><span>messages</span></div>
+          <div class="stat"><b>${kb} KB</b><span>of data</span></div>
+          <div class="stat"><b>${store.state.models.length}</b><span>models in catalog</span></div>
         </div>
       </section>
       <section class="set-card">
-        <h3>Експорт і очищення</h3>
+        <h3>Export & cleanup</h3>
         <div class="edge-row">
-          <button class="btn btn-ghost" id="export-json">${ico("download")} Експорт у JSON</button>
-          <button class="btn btn-ghost danger-text" id="clear-chats">${ico("trash")} Очистити всі розмови</button>
-          <button class="btn btn-danger" id="wipe">${ico("alert")} Повне скидання</button>
+          <button class="btn btn-ghost" id="export-json">${ico("download")} Export JSON</button>
+          <button class="btn btn-ghost danger-text" id="clear-chats">${ico("trash")} Clear all chats</button>
+          <button class="btn btn-danger" id="wipe">${ico("alert")} Full reset</button>
         </div>
       </section>`;
     dataP.querySelector("#export-json")!.addEventListener("click", () => {
@@ -684,19 +660,19 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
       a.download = "ai-studio-export.json";
       a.click();
       URL.revokeObjectURL(url);
-      toast("Експортовано", "ok");
+      toast("Exported", "ok");
     });
     dataP.querySelector("#clear-chats")!.addEventListener("click", async () => {
-      const ok = await confirmDialog({ title: "Очистити розмови?", text: "Усю історію чатів буде видалено з IndexedDB. Налаштування залишаться.", okText: "Очистити", danger: true });
+      const ok = await confirmDialog({ title: "Clear chats?", text: "All chat history will be removed from IndexedDB. Settings are kept.", okText: "Clear", danger: true });
       if (!ok) return;
       store.state.chats = [makeChat()];
       persist();
       router.navigate(`#/c/${store.state.chats[0].id}`);
       renderSettings();
-      toast("Історію очищено", "ok");
+      toast("History cleared", "ok");
     });
     dataP.querySelector("#wipe")!.addEventListener("click", async () => {
-      const ok = await confirmDialog({ title: "Повне скидання?", text: "Буде видалено все: розмови, налаштування, ключі та кеш моделей. Дію неможливо скасувати.", okText: "Скинути все", danger: true });
+      const ok = await confirmDialog({ title: "Full reset?", text: "Everything will be deleted: chats, settings, keys and the model cache. This cannot be undone.", okText: "Reset all", danger: true });
       if (!ok) return;
       await db.clear("chats");
       await db.clear("settings");
@@ -707,11 +683,9 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     });
   }
 
-  /* ---------- старт ---------- */
   renderChatList();
   router.start();
 
-  // фонове оновлення каталогу моделей, якщо є ключі або edge
   if (settings.edgeUrl || Object.values(settings.keys).some(Boolean)) {
     client.fetchModels(store.state.settings.keys)
       .then((models) => {

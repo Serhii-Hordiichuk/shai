@@ -1,7 +1,3 @@
-/* ============================================================
-   Кастомні UI-примітиви: модалки, dropdown, тости, тумблери,
-   слайдери, діалоги підтвердження — все без бібліотек.
-   ============================================================ */
 import { ico } from "./icons";
 
 export function el<T extends HTMLElement>(tag: string, cls?: string, html?: string): T {
@@ -11,7 +7,6 @@ export function el<T extends HTMLElement>(tag: string, cls?: string, html?: stri
   return e;
 }
 
-/* ---------------- Тости ---------------- */
 let toastWrap: HTMLElement | null = null;
 export function toast(msg: string, kind: "info" | "ok" | "err" = "info"): void {
   if (!toastWrap) {
@@ -27,9 +22,9 @@ export function toast(msg: string, kind: "info" | "ok" | "err" = "info"): void {
   }, 3400);
 }
 
-/* ---------------- Модалка ---------------- */
 export class Modal {
   private ov: HTMLElement | null = null;
+  onCloseCb?: () => void;
   private onKey = (e: KeyboardEvent) => { if (e.key === "Escape") this.close(); };
 
   open(opts: { title: string; body: string | HTMLElement; actions?: { label: string; kind?: "primary" | "danger" | "ghost"; onClick?: () => void }[]; onClose?: () => void }): void {
@@ -37,7 +32,7 @@ export class Modal {
     const ov = el("div", "modal-ov");
     const card = el("div", "modal-card");
     card.innerHTML = `
-      <div class="modal-head"><h3>${opts.title}</h3><button class="icon-btn modal-x" title="Закрити">${ico("close")}</button></div>
+      <div class="modal-head"><h3>${opts.title}</h3><button class="icon-btn modal-x" title="Close">${ico("close")}</button></div>
       <div class="modal-body"></div>
       <div class="modal-actions"></div>`;
     const body = card.querySelector(".modal-body")!;
@@ -54,12 +49,10 @@ export class Modal {
     ov.appendChild(card);
     document.body.appendChild(ov);
     this.ov = ov;
-    this._onClose = opts.onClose;
+    this.onCloseCb = opts.onClose;
     requestAnimationFrame(() => ov.classList.add("show"));
     document.addEventListener("keydown", this.onKey);
   }
-
-  _onClose?: () => void;
 
   close(): void {
     if (!this.ov) return;
@@ -68,7 +61,7 @@ export class Modal {
     setTimeout(() => node.remove(), 200);
     this.ov = null;
     document.removeEventListener("keydown", this.onKey);
-    this._onClose?.();
+    this.onCloseCb?.();
   }
 }
 
@@ -81,11 +74,11 @@ export function confirmDialog(opts: { title: string; text: string; okText?: stri
       body: `<p class="confirm-text">${opts.text}</p>`,
       onClose: () => resolve(false),
       actions: [
-        { label: "Скасувати", kind: "ghost", onClick: () => modal.close() },
+        { label: "Cancel", kind: "ghost", onClick: () => modal.close() },
         {
-          label: opts.okText ?? "Підтвердити",
+          label: opts.okText ?? "Confirm",
           kind: opts.danger ? "danger" : "primary",
-          onClick: () => { modal._onClose = undefined; modal.close(); resolve(true); },
+          onClick: () => { modal.onCloseCb = undefined; modal.close(); resolve(true); },
         },
       ],
     });
@@ -102,21 +95,20 @@ export function promptDialog(opts: { title: string; label: string; value?: strin
       body: wrap,
       onClose: () => resolve(null),
       actions: [
-        { label: "Скасувати", kind: "ghost", onClick: () => modal.close() },
+        { label: "Cancel", kind: "ghost", onClick: () => modal.close() },
         {
-          label: "Зберегти", kind: "primary",
-          onClick: () => { const v = input.value.trim(); modal._onClose = undefined; modal.close(); resolve(v); },
+          label: "Save", kind: "primary",
+          onClick: () => { const v = input.value.trim(); modal.onCloseCb = undefined; modal.close(); resolve(v); },
         },
       ],
     });
     setTimeout(() => { input.focus(); input.select(); }, 60);
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { const v = input.value.trim(); modal._onClose = undefined; modal.close(); resolve(v); }
+      if (e.key === "Enter") { const v = input.value.trim(); modal.onCloseCb = undefined; modal.close(); resolve(v); }
     });
   });
 }
 
-/* ---------------- Dropdown (кастомний popover) ---------------- */
 export function openPopover(anchor: HTMLElement, content: HTMLElement, opts: { align?: "left" | "right"; width?: number; onClose?: () => void } = {}): () => void {
   closePopover();
   const pop = el("div", "dd-menu");
@@ -156,7 +148,6 @@ export function closePopover(): void {
   document.querySelectorAll(".dd-menu").forEach((n) => (n as any)._close?.());
 }
 
-/* ---------------- Тумблер ---------------- */
 export function switchEl(checked: boolean, onChange: (v: boolean) => void): HTMLElement {
   const sw = el("button", `sw${checked ? " on" : ""}`);
   sw.setAttribute("role", "switch");
@@ -171,7 +162,6 @@ export function switchEl(checked: boolean, onChange: (v: boolean) => void): HTML
   return sw;
 }
 
-/* ---------------- Слайдер ---------------- */
 export function rangeEl(opts: { min: number; max: number; step: number; value: number; fmt?: (v: number) => string; onChange: (v: number) => void }): HTMLElement {
   const wrap = el("div", "range-wrap");
   const out = el("output", "range-out", opts.fmt ? opts.fmt(opts.value) : String(opts.value));
