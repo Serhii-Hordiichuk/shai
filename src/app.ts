@@ -438,6 +438,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
   /* ---------- роутер і вʼюхи ---------- */
   function showView(name: "chat" | "settings" | "docs"): void {
     store.state.view = name;
+    store.state.sidebarOpen = false; // на мобільних drawer зачиняється
     for (const [k, v] of Object.entries(viewEls)) v.hidden = k !== name;
     root.querySelectorAll(".nav-item").forEach((n) => n.classList.toggle("active", n.getAttribute("data-nav") === name));
   }
@@ -457,7 +458,10 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     .setFallback(() => router.navigate(`#/c/${store.state.chats[0].id}`));
 
   /* ---------- сторінка ТЗ ---------- */
-  viewEls.docs.innerHTML = `<div class="doc-view"><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
+  viewEls.docs.innerHTML = `<div class="doc-view"><div class="head-row"><button class="icon-btn view-burger" title="Меню">${ico("menu")}</button><span class="head-row-title">Архітектура і ТЗ</span></div><div class="md-content">${renderMarkdown(DOC_MD)}</div></div>`;
+  root.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).closest(".view-burger")) store.state.sidebarOpen = true;
+  });
 
   /* ---------- делегування копіювання коду (доки/налаштування) ---------- */
   root.addEventListener("click", (e) => {
@@ -478,7 +482,7 @@ export async function createStudio(root: HTMLElement): Promise<() => void> {
     const set = (patch: Partial<Settings>) => store.setDeep("settings", (x) => ({ ...x, ...patch }));
     host.innerHTML = `
       <div class="set-view">
-        <header class="set-head"><h2>${ico("gear")} Налаштування</h2><p>Edge-проксі, API-ключі, голос, інтерфейс і дані</p></header>
+        <header class="set-head"><div class="head-row"><button class="icon-btn view-burger" title="Меню">${ico("menu")}</button><h2>${ico("gear")} Налаштування</h2></div><p>Edge-проксі, API-ключі, голос, інтерфейс і дані</p></header>
         <div class="set-tabs">
           <button class="set-tab on" data-tab="api">${ico("key")} Моделі та API</button>
           <button class="set-tab" data-tab="voice">${ico("mic")} Голос і дзвінки</button>

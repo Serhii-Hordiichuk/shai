@@ -161,7 +161,7 @@ export class ChatEngine {
       <div class="composer">
         <div class="comp-chips" hidden></div>
         <div class="comp-box">
-          <textarea class="comp-ta" rows="1" placeholder="Повідомлення…  (Shift+Enter — новий рядок)"></textarea>
+          <textarea class="comp-ta" rows="1" placeholder="Повідомлення…" title="Enter — надіслати, Shift+Enter — новий рядок"></textarea>
           <div class="comp-btns">
             <button class="icon-btn" data-act="attach" title="Прикріпити зображення">${ico("image")}</button>
             <button class="icon-btn mic-btn" data-act="dictate" title="Голосове введення">${ico("mic")}</button>
